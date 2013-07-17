@@ -136,6 +136,7 @@ enum
   PROP_CUSTOM_AIC_PARAMETER,
 
   PROP_FLIP_MODE,
+  PROP_3A_CADENCE,
   PROP_ANTIBANDING_MODE,
   PROP_COLOR_RANGE_MODE,
   PROP_VIDEO_STABILIZATION_MODE,
@@ -1000,6 +1001,10 @@ gst_camerasrc_class_init (GstcamerasrcClass * klass)
       g_param_spec_enum ("flip-mode", "Flip Mode", "Flip Mode",
           gst_camerasrc_flip_mode_get_type(), DEFAULT_PROP_FLIP_MODE, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+  g_object_class_install_property(gobject_class,PROP_3A_CADENCE,
+      g_param_spec_int("run3a-cadence","Run 3A Cadence","The frame interval to run 3A",
+        1, 60, DEFAULT_PROP_RUN_3A_CADENCE, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
   g_object_class_install_property (gobject_class, PROP_ANTIBANDING_MODE,
       g_param_spec_enum ("antibanding-mode", "Antibanding Mode", "Antibanding Mode",
           gst_camerasrc_antibanding_mode_get_type(), DEFAULT_PROP_ANTIBANDING_MODE, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
@@ -1099,6 +1104,7 @@ gst_camerasrc_init (Gstcamerasrc * camerasrc)
   camerasrc->running = GST_CAMERASRC_STATUS_DEFAULT;
   camerasrc->num_vc = 0;
   camerasrc->debugLevel = 0;
+  camerasrc->run_3a_cadence = DEFAULT_PROP_RUN_3A_CADENCE;
   camerasrc->video_stabilization_mode = DEFAULT_PROP_VIDEO_STABILIZATION_MODE;
   camerasrc->fisheye_dewarping_mode = DEFAULT_PROP_FISHEYE_DEWARPING_MODE;
   camerasrc->input_fmt = DEFAULT_PROP_INPUT_FORMAT;
@@ -1875,6 +1881,10 @@ gst_camerasrc_set_property (GObject * object, guint prop_id,
       src->param->setFlipMode((camera_flip_mode_t)g_value_get_enum(value));
       src->flip_mode = g_value_get_enum (value);
       break;
+    case PROP_3A_CADENCE:
+      src->param->setRun3ACadence(g_value_get_int(value));
+      src->run_3a_cadence = g_value_get_int(value);
+      break;
     case PROP_ANTIBANDING_MODE:
       src->param->setAntiBandingMode((camera_antibanding_mode_t)g_value_get_enum(value));
       src->man_ctl.antibanding_mode = g_value_get_enum (value);
@@ -2073,6 +2083,9 @@ gst_camerasrc_get_property (GObject * object, guint prop_id,
       break;
     case PROP_FLIP_MODE:
       g_value_set_enum (value, src->flip_mode);
+      break;
+    case PROP_3A_CADENCE:
+      g_value_set_int (value, src->run_3a_cadence);
       break;
     case PROP_INPUT_FORMAT:
       g_value_set_string (value, src->input_fmt);

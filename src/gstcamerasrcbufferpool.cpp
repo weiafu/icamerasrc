@@ -739,6 +739,12 @@ gst_camerasrc_buffer_pool_acquire_buffer (GstBufferPool * bpool, GstBuffer ** bu
   if (camerasrc->print_fps)
       gst_camerasrc_update_fps(camerasrc, stream_id);
 
+  /* in PLAYING->PAUSED and PAUSED->NULL state, no need to dqbuf */
+  if (camerasrc->running != GST_CAMERASRC_STATUS_RUNNING) {
+    GST_INFO("CameraId=%d, StreamId=%d stop dqbuf.", camerasrc->device_id, pool->stream_id);
+    return GST_FLOW_EOS;
+  }
+
   int ret = camera_stream_dqbuf(camerasrc->device_id, stream_id, &meta->buffer);
   if (ret != 0) {
     GST_ERROR("CameraId=%d, StreamId=%d dqbuf failed ret %d.",
@@ -867,9 +873,10 @@ gst_camerasrc_buffer_pool_release_buffer (GstBufferPool * bpool, GstBuffer * buf
     camerasrc->streams[stream_id].buffer_queue->size(),
     meta->buffer->index, meta->buffer->flags);
 
-  /* in PLAYING->PAUSED state, no need to check if queue has available buffer, unlock qbuf_mutex
-  * immediately and quit function so pipeline can cease normally */
-  if (camerasrc->running == GST_CAMERASRC_STATUS_STOP) {
+  /* in PLAYING->PAUSED and PAUSED->NULL state,
+  * no need to check if queue has available buffer,
+  * unlock qbuf_mutex immediately and quit function so pipeline can cease normally */
+  if (camerasrc->running != GST_CAMERASRC_STATUS_RUNNING) {
     GST_INFO("CameraId=%d, StreamId=%d is exiting.", camerasrc->device_id, pool->stream_id);
     g_mutex_unlock(&camerasrc->qbuf_mutex);
     return;

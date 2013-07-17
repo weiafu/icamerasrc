@@ -2582,6 +2582,7 @@ gst_cam_base_src_video_get_range (GstCamBaseSrc * src, GstPad *pad, guint64 offs
 {
   GstFlowReturn ret;
   GstCamBaseSrcClass *bclass;
+  GstClockReturn status;
   GstBuffer *res_buf, *in_buf;
   gchar *padname = gst_pad_get_name(pad);
 
@@ -2599,6 +2600,7 @@ gst_cam_base_src_video_get_range (GstCamBaseSrc * src, GstPad *pad, guint64 offs
   }
 
   if (G_UNLIKELY (g_atomic_int_get (&src->priv->has_pending_eos))) {
+    src->priv->forced_eos = TRUE;
     goto eos;
   }
 
@@ -2612,6 +2614,11 @@ gst_cam_base_src_video_get_range (GstCamBaseSrc * src, GstPad *pad, guint64 offs
   if (G_UNLIKELY (ret != GST_FLOW_OK))
     goto not_ok;
 
+  if (G_UNLIKELY (g_atomic_int_get (&src->priv->has_pending_eos))) {
+    src->priv->forced_eos = TRUE;
+    goto eos;
+  }
+
   if (offset == 0 && src->vid_segment.time == 0
       && (gint64)GST_BUFFER_DTS (res_buf) == -1 && !src->is_live) {
     GST_DEBUG_OBJECT (src, "%s pad: setting first timestamp to 0", padname);
@@ -2619,17 +2626,31 @@ gst_cam_base_src_video_get_range (GstCamBaseSrc * src, GstPad *pad, guint64 offs
     GST_BUFFER_DTS (res_buf) = 0;
   }
 
-  gst_cam_base_src_do_video_sync(src, res_buf);
+  status = gst_cam_base_src_do_video_sync(src, res_buf);
 
   if (G_UNLIKELY (src->priv->flushing))
     goto flushing;
 
+  switch (status) {
+    case GST_CLOCK_UNSCHEDULED:
+      if (!src->live_running) {
+        ret = GST_FLOW_FLUSHING;
+      }
+      break;
+    case GST_CLOCK_EARLY:
+    case GST_CLOCK_OK:
+      break;
+    default:
+      ret = GST_FLOW_ERROR;
+      break;
+  }
   if (G_LIKELY(ret == GST_FLOW_OK))
     *buf = res_buf;
 
   g_free (padname);
 
   return ret;
+
 not_ok:
   {
     GST_DEBUG_OBJECT (src, "%s pad: create returned %d (%s)", padname,
@@ -2972,7 +2993,6 @@ pause:
         event = src->priv->pending_eos;
         src->priv->pending_eos = NULL;
         GST_OBJECT_UNLOCK (src);
-
       } else if (flag_segment) {
         GstMessage *message;
 
@@ -3024,7 +3044,19 @@ static void gst_cam_base_src_video_loop (GstPad * pad)
   gchar *padname = gst_pad_get_name(pad);
   GstCamBaseSrc *src = GST_CAM_BASE_SRC(GST_OBJECT_PARENT(pad));
 
+  /* Just leave immediately if we're flushing */
+  GST_VID_LIVE_LOCK (src);
+  if (G_UNLIKELY (src->priv->flushing || GST_PAD_IS_FLUSHING (pad)))
+    goto flushing;
+  GST_VID_LIVE_UNLOCK (src);
+
   gst_cam_base_src_send_video_stream_start(src);
+
+  /* The stream-start event could've caused something to flush us */
+  GST_VID_LIVE_LOCK (src);
+  if (G_UNLIKELY (src->priv->flushing || GST_PAD_IS_FLUSHING (pad)))
+    goto flushing;
+  GST_VID_LIVE_UNLOCK (src);
 
   /* check if we need to renegotiate */
   if (gst_pad_check_reconfigure (pad)) {
@@ -3122,18 +3154,51 @@ pause:
   {
     const gchar *reason = gst_flow_get_name(ret);
     GstEvent *event;
+
+    GST_DEBUG_OBJECT (src, "%s pad: pausing task, reason %s", padname, reason);
+    src->running = FALSE;
+    gst_pad_pause_task (pad);
     if (ret == GST_FLOW_EOS) {
-      gst_pad_pause_task (pad);
-      event = gst_event_new_eos();
-    } else {
+      gboolean flag_segment;
+      GstFormat format;
+      gint64 position;
+
+      flag_segment = (src->vid_segment.flags & GST_SEGMENT_FLAG_SEGMENT) != 0;
+      format = src->vid_segment.format;
+      position = src->vid_segment.position;
+
+      /* perform EOS logic */
+      if (src->priv->forced_eos) {
+        g_assert (g_atomic_int_get (&src->priv->has_pending_eos));
+        GST_OBJECT_LOCK (src);
+        event = src->priv->pending_eos;
+        src->priv->pending_eos = NULL;
+        GST_OBJECT_UNLOCK (src);
+      } else if (flag_segment) {
+        GstMessage *message;
+
+        message = gst_message_new_segment_done (GST_OBJECT_CAST (src),
+            format, position);
+        gst_message_set_seqnum (message, src->priv->seqnum);
+        gst_element_post_message (GST_ELEMENT_CAST (src), message);
+        event = gst_event_new_segment_done (format, position);
+        gst_event_set_seqnum (event, src->priv->seqnum);
+      } else {
+        event = gst_event_new_eos();
+        gst_event_set_seqnum (event, src->priv->seqnum);
+        src->priv->receive_eos = TRUE;
+      }
+      gst_pad_push_event (pad, event);
+      src->priv->forced_eos = FALSE;
+    } else if (ret == GST_FLOW_NOT_LINKED || ret <= GST_FLOW_EOS) {
       event = gst_event_new_eos();
       gst_event_set_seqnum(event, src->priv->seqnum);
       GST_ELEMENT_ERROR (src, STREAM, FAILED,
         ("%s pad: Internal data flow error.", padname),
         ("streaming task paused, reason %s (%d)",
         reason, ret));
+        gst_pad_push_event (pad, event);
     }
-    gst_pad_push_event (pad, event);
 
     goto done;
   }
@@ -3142,6 +3207,7 @@ null_buffer:
     GST_ELEMENT_ERROR(src, STREAM, FAILED,
       ("%s pad: Internal data flow error.", padname),
       ("element return NULL buffer"));
+    GST_VID_LIVE_UNLOCK(src);
 
     goto done;
   }

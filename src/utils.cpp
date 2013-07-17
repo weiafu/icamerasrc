@@ -1,6 +1,6 @@
 /*
  * GStreamer
- * Copyright (C) 2016-2017 Intel Corporation
+ * Copyright (C) 2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -61,6 +61,8 @@ static const FormatCvt gFormatMapping[] = {
   { "RGB16", GST_VIDEO_FORMAT_RGB16, V4L2_PIX_FMT_RGB565 },
   { "NV16", GST_VIDEO_FORMAT_NV16, V4L2_PIX_FMT_NV16 },
   { "BGRx", GST_VIDEO_FORMAT_BGRx, V4L2_PIX_FMT_XBGR32 },
+  { "P010", GST_VIDEO_FORMAT_P010_10BE, V4L2_PIX_FMT_P010_BE },
+  { "P01L", GST_VIDEO_FORMAT_P010_10LE, V4L2_PIX_FMT_P010_LE },
 };
 
 int num_of_format = ARRAY_SIZE(gFormatMapping);
@@ -118,6 +120,8 @@ int CameraSrcUtils:: get_number_of_valid_lines(int format, int height)
     case V4L2_PIX_FMT_NV21:
     case V4L2_PIX_FMT_YUV420:
     case V4L2_PIX_FMT_YVU420:
+    case V4L2_PIX_FMT_P010_BE:
+    case V4L2_PIX_FMT_P010_LE:
       return height*3/2;
     case V4L2_PIX_FMT_NV16:
       return height*2;

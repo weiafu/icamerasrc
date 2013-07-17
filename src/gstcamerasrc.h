@@ -72,6 +72,7 @@ using std::set;
 #define MAX_PROP_BUFFERCOUNT 10
 #define MIN_PROP_BUFFERCOUNT 2
 #define DEFAULT_PROP_WDR_LEVEL 100
+#define DEFAULT_PROP_RUN_3A_CADENCE 1
 #define DEFAULT_PROP_EXPOSURE_TIME 0
 #define DEFAULT_PROP_GAIN 0.0
 #define DEFAULT_PROP_PRINT_FPS false
@@ -497,6 +498,7 @@ struct _Gstcamerasrc
   int deinterlace_method;
   int io_mode;
   int flip_mode;
+  int run_3a_cadence;
   int video_stabilization_mode;
   int fisheye_dewarping_mode;
   int buffer_usage;
