@@ -48,11 +48,22 @@ User Guide
         4. Build and install icamerasrc RPM
         5. Run Gstreamer pipeline with icamerasrc
 
+Important Notes:
+    1. The icamerasrc can't be compiled without some dependancy packages
+    2. Please get the dependacy packages from your correct contacts.
+        See "Prerequisite packages:" for more information.
+    3. Match the "RPM" with the source code in this repo.
+        For example, this is the commit message.
+            Update for 17WW23 release
+            Release for 17WW23: icamerasrc-1.0.0-912.9fb2898.x86_64.rpm
+        It means the code of this commit match the RPM release of "9fb2898".
+        So if your RPM is "9fb2898", you can use this commit code to build.
+
 Setup environment
 =============
 
     System requirements:
-        Ubuntu 14.04
+        Ubuntu 14.04 or 16.04
         glib-2.0
         gobject-2.0
         gstreamer-1.0(Version 1.7.9 is preferred)

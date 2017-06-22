@@ -52,7 +52,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <vector>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <gst/video/gstvideometa.h>
 #include <gst/video/gstvideopool.h>
 #include <gst/gst.h>
@@ -68,7 +69,6 @@
 #include "utils.h"
 
 using namespace icamera;
-using std::vector;
 
 GST_DEBUG_CATEGORY (gst_camerasrc_debug);
 #define GST_CAT_DEFAULT gst_camerasrc_debug
@@ -140,6 +140,7 @@ enum
   PROP_BUFFER_USAGE,
   PROP_INPUT_WIDTH,
   PROP_INPUT_HEIGHT,
+  PROP_ISP_CONTROL,
 };
 
 #define gst_camerasrc_parent_class parent_class
@@ -724,6 +725,9 @@ gst_camerasrc_finalize (Gstcamerasrc *camerasrc)
   delete camerasrc->param;
   camerasrc->param = NULL;
 
+  delete camerasrc->isp_control_tags;
+  camerasrc->isp_control_tags = NULL;
+
   g_cond_clear(&camerasrc->cond);
   g_mutex_clear(&camerasrc->lock);
 
@@ -954,6 +958,10 @@ gst_camerasrc_class_init (GstcamerasrcClass * klass)
       g_param_spec_enum ("buffer-usage", "Buffer flags", "Used to specify buffer properties",
           gst_camerasrc_buffer_usage_get_type(), DEFAULT_PROP_BUFFER_USAGE, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+  g_object_class_install_property(gobject_class,PROP_ISP_CONTROL,
+      g_param_spec_string("isp-control","isp control","Use a file which contains the detial settings to control isp",
+        DEFAULT_PROP_ISP_CONTROL,(GParamFlags)(G_PARAM_STATIC_STRINGS | G_PARAM_WRITABLE)));
+
   gst_element_class_set_static_metadata(gstelement_class,
       "icamerasrc",
       "Source/Video",
@@ -1039,6 +1047,7 @@ gst_camerasrc_init (Gstcamerasrc * camerasrc)
 
   /* set default value for 3A manual control*/
   camerasrc->param = new Parameters;
+  camerasrc->isp_control_tags = new set <unsigned int>;
   memset(&(camerasrc->man_ctl), 0, sizeof(camerasrc->man_ctl));
   memset(camerasrc->man_ctl.ae_region, 0, sizeof(camerasrc->man_ctl.ae_region));
   memset(camerasrc->man_ctl.color_transform, 0, sizeof(camerasrc->man_ctl.color_transform));
@@ -1407,6 +1416,57 @@ gst_camerasrc_config_ae_params(Gstcamerasrc *src)
     src->param->setSceneMode((camera_scene_mode_t)src->man_ctl.scene_mode);
 }
 
+static int
+gst_camerasrc_analyze_isp_control(Gstcamerasrc *src, const char *bin_name)
+{
+  struct stat st;
+  FILE *fp = NULL;
+  void *data = NULL;
+  char *buffer = NULL;
+  int len = 0, offset = 0;
+  isp_control_header *isp_header;
+  int header_size = sizeof(isp_control_header);
+
+  if (bin_name == NULL || (stat(bin_name, &st) != 0)) {
+    GST_ERROR("The binary file for isp control doesn't exist");
+    return -1;
+  }
+
+  if ((fp = fopen(bin_name, "r")) == NULL) {
+    GST_ERROR("Failed to open the isp control file");
+    return -1;
+  }
+
+  buffer = new char[MAX_ISP_SETTINGS_SIZE];
+  len = (int)fread(buffer, 1, MAX_ISP_SETTINGS_SIZE, fp);
+  fclose(fp);
+  if (!len) {
+    GST_ERROR("Failed to read the isp control file");
+    delete[] buffer;
+    return -1;
+  }
+
+  src->isp_control_tags->clear();
+  g_message("%s, The isp control data length %d", __func__, len);
+
+  while((offset + header_size) < len) {
+    isp_header = (isp_control_header*)(buffer + offset);
+    data = (void*) (buffer + offset + header_size);
+    offset += isp_header->size;
+
+    (src->isp_control_tags)->insert(isp_header->uuid);
+    src->param->setIspControl(isp_header->uuid, data);
+    g_message("%s, the isp control uuid: %d, size: %d, offset: %d",
+                __func__, isp_header->uuid, isp_header->size, offset);
+  }
+
+  src->param->setEnabledIspControls(*(src->isp_control_tags));
+  camera_set_parameters(src->device_id, *(src->param));
+  delete[] buffer;
+
+  return 0;
+}
+
 static void
 gst_camerasrc_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
@@ -1414,6 +1474,7 @@ gst_camerasrc_set_property (GObject * object, guint prop_id,
   PERF_CAMERA_ATRACE();
   Gstcamerasrc *src = GST_CAMERASRC (object);
   int ret = 0;
+  const char *bin_name = NULL;
   gboolean manual_setting = true;
 
   camera_awb_gains_t awb_gain;
@@ -1691,6 +1752,12 @@ gst_camerasrc_set_property (GObject * object, guint prop_id,
       break;
     case PROP_INPUT_HEIGHT:
       src->input_config.height = g_value_get_int(value);
+      break;
+    case PROP_ISP_CONTROL:
+      bin_name = g_value_get_string (value);
+      ret = gst_camerasrc_analyze_isp_control(src, bin_name);
+      if (ret != 0)
+        GST_ERROR("Failed to set isp control: please check the settings in file");
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -3090,9 +3157,19 @@ static gboolean gst_camerasrc_set_sensitivity_gain_range (GstCamerasrc3A *cam3a,
 */
 static gboolean gst_camerasrc_set_isp_control (GstCamerasrcIsp *camIsp, unsigned int tag, void *data)
 {
+  int ret = 0;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camIsp);
+
+  if (data == NULL) {
+    (camerasrc->isp_control_tags)->erase(tag);
+  } else {
+    (camerasrc->isp_control_tags)->insert(tag);
+  }
+
+  ret = camerasrc->param->setIspControl(tag, data);
   g_message("Enter %s", __func__);
 
-  return TRUE;
+  return (ret == 0 ? TRUE : FALSE);
 }
 
 /* Get the isp data
@@ -3104,9 +3181,15 @@ static gboolean gst_camerasrc_set_isp_control (GstCamerasrcIsp *camIsp, unsigned
 */
 static gboolean gst_camerasrc_get_isp_control (GstCamerasrcIsp *camIsp, unsigned int tag, void * data)
 {
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camIsp);
   g_message("Enter %s", __func__);
 
-  return TRUE;
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.getIspControl(tag, data);
+
+  return (ret == 0 ? TRUE : FALSE);
 }
 
 /* Apply the data cached in param to isp
@@ -3116,11 +3199,14 @@ static gboolean gst_camerasrc_get_isp_control (GstCamerasrcIsp *camIsp, unsigned
  */
 static gboolean gst_camerasrc_apply_isp_control (GstCamerasrcIsp *camIsp)
 {
+  int ret = 0;
   Gstcamerasrc *camerasrc = GST_CAMERASRC(camIsp);
-  camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
+
+  camerasrc->param->setEnabledIspControls(*(camerasrc->isp_control_tags));
+  ret = camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
   g_message("Interface Called: @%s", __func__);
 
-  return TRUE;
+  return (ret == 0 ? TRUE : FALSE);
 }
 
 #if 0

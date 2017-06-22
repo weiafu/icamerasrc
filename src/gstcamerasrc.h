@@ -52,11 +52,15 @@
 #include <linux/videodev2.h>
 #include "gstcampushsrc.h"
 #include <queue>
+#include <vector>
+#include <set>
 
 G_BEGIN_DECLS
 
 using std::map;
 using std::queue;
+using std::vector;
+using std::set;
 
 #define DEFAULT_FRAME_WIDTH 1920
 #define DEFAULT_FRAME_HEIGHT 1080
@@ -78,6 +82,7 @@ using std::queue;
 #define MIN_PROP_INPUT_HEIGHT 0
 #define MAX_PROP_INPUT_WIDTH 1920
 #define MAX_PROP_INPUT_HEIGHT 1080
+#define MAX_ISP_SETTINGS_SIZE 1024 * 1024
 
 /* Default value of enum type property 'io-mode':userptr */
 #define DEFAULT_PROP_IO_MODE GST_CAMERASRC_IO_MODE_USERPTR
@@ -122,6 +127,7 @@ using std::queue;
 #define DEFAULT_PROP_COLOR_TRANSFORM NULL
 #define DEFAULT_PROP_CUSTOM_AIC_PARAMETER NULL
 #define DEFAULT_PROP_INPUT_FORMAT NULL
+#define DEFAULT_PROP_ISP_CONTROL NULL
 
 enum
 {
@@ -313,6 +319,12 @@ typedef struct _GstFpsDebug GstFpsDebug;
 typedef struct _Gst3AManualControl Gst3AManualControl;
 typedef struct _GstStreamInfo GstStreamInfo;
 
+typedef struct
+{
+  unsigned int uuid;
+  unsigned int size;
+} isp_control_header;
+
 /* Used to update fps*/
 struct _GstFpsDebug
 {
@@ -440,6 +452,7 @@ struct _Gstcamerasrc
   gboolean first_frame;
   gboolean camera_open;
   Parameters *param;
+  set <unsigned int> *isp_control_tags;
   gboolean running;
 
   /* Used with GST_CAMSRC_LOCK and GST_CAMSRC_WAIT etc. */
