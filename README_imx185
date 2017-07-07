@@ -69,7 +69,7 @@ exposure-time          Int                30~33333       N/A                  30
                                                                                                      imx185/hlc/90~33333
                                                                                                      imx185/video-ll/90~33333
 
-ev                     Int                -4~4           N/A                  0
+ev                     Int                -3~3           N/A                  0
 
 exp-priority           Enum               N/A            0:auto               0:auto                 Aperture can't support with iris-mode
                                                          1:shutter

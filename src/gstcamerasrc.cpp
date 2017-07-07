@@ -888,7 +888,7 @@ gst_camerasrc_class_init (GstcamerasrcClass * klass)
 
   g_object_class_install_property(gobject_class,PROP_EXPOSURE_EV,
       g_param_spec_int("ev","Exposure Ev","Exposure Ev",
-          -4,4,0,(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+          -3,3,0,(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   g_object_class_install_property (gobject_class, PROP_EXPOSURE_PRIORITY,
       g_param_spec_enum ("exp-priority", "Exposure Priority", "Exposure Priority",
@@ -2973,7 +2973,7 @@ gst_camerasrc_get_white_point (GstCamerasrc3A *cam3a,
 * The coordinate system is based on frame which is currently displayed.
 * param[in]        cam3a    Camera Source handle
 * param[in]        whitePoint    white point coordinate(x, y)
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FASLE is returned
 */
 static gboolean
 gst_camerasrc_set_white_point (GstCamerasrc3A *cam3a,
@@ -3009,7 +3009,7 @@ gst_camerasrc_get_awb_gain_shift (GstCamerasrc3A *cam3a,
 /* Set AWB gain shift
 * param[in]        cam3a    Camera Source handle
 * param[in]        awbGainShift    gain shift(r_gain, g_gain, b_gain)
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FASLE is returned
 */
 static gboolean
 gst_camerasrc_set_awb_gain_shift (GstCamerasrc3A *cam3a,
@@ -3027,7 +3027,7 @@ gst_camerasrc_set_awb_gain_shift (GstCamerasrc3A *cam3a,
 /* Set AE region
 * param[in]        cam3a    Camera Source handle
 * param[in]        aeRegions    regions(left, top, right, bottom, weight)
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FASLE is returned
 */
 static gboolean
 gst_camerasrc_set_ae_region (GstCamerasrc3A *cam3a,
@@ -3044,7 +3044,7 @@ gst_camerasrc_set_ae_region (GstCamerasrc3A *cam3a,
 /* Set color transform
 * param[in]        cam3a    Camera Source handle
 * param[in]        colorTransform    float array
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FASLE is returned
 */
 static gboolean
 gst_camerasrc_set_color_transform (GstCamerasrc3A *cam3a,
@@ -3062,7 +3062,7 @@ gst_camerasrc_set_color_transform (GstCamerasrc3A *cam3a,
 * param[in]        cam3a    Camera Source handle
 * param[in]        data    the pointer of destination buffer
 * param[in]        length    but buffer size
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FASLE is returned
 */
 static gboolean
 gst_camerasrc_set_custom_aic_param (GstCamerasrc3A *cam3a,
@@ -3082,7 +3082,7 @@ gst_camerasrc_set_custom_aic_param (GstCamerasrc3A *cam3a,
 *                                     ANTIBANDING_MODE_50HZ,
 *                                     ANTIBANDING_MODE_60HZ,
 *                                     ANTIBANDING_MODE_OFF,
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FASLE is returned
 */
 static gboolean
 gst_camerasrc_set_antibanding_mode (GstCamerasrc3A *cam3a,
@@ -3100,7 +3100,7 @@ gst_camerasrc_set_antibanding_mode (GstCamerasrc3A *cam3a,
 * param[in]        cam3a    Camera Source handle
 * param[in]        colorRangeMode     CAMERA_FULL_MODE_YUV_COLOR_RANGE,
 *                                     CAMERA_REDUCED_MODE_YUV_COLOR_RANGE,
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FASLE is returned
 */
 static gboolean gst_camerasrc_set_color_range_mode (GstCamerasrc3A *cam3a,
     camera_yuv_color_range_mode_t colorRangeMode)
@@ -3116,7 +3116,7 @@ static gboolean gst_camerasrc_set_color_range_mode (GstCamerasrc3A *cam3a,
 /* Set exposure time range
 * param[in]        cam3a        Camera Source handle
 * param[in]        exposureTimeRange        the exposure time range to be set
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FASLE is returned
 */
 static gboolean gst_camerasrc_set_exposure_time_range(GstCamerasrc3A *cam3a,
     camera_ae_exposure_time_range_t exposureTimeRange)
@@ -3133,7 +3133,7 @@ static gboolean gst_camerasrc_set_exposure_time_range(GstCamerasrc3A *cam3a,
 /* set sensitivity gain range
 * param[in]        cam3a        Camera Source handle
 * param[in]        sensitivityGainRange        the sensitivity gain range to be set
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FALSE is returned
 */
 static gboolean gst_camerasrc_set_sensitivity_gain_range (GstCamerasrc3A *cam3a,
     camera_sensitivity_gain_range_t sensitivityGainRange)
@@ -3153,7 +3153,7 @@ static gboolean gst_camerasrc_set_sensitivity_gain_range (GstCamerasrc3A *cam3a,
 * param[in]        camIsp        Camera Source handle
 * param[in]        tag           The control tag
 * param[in]        data          The control data
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FALSE is returned
 */
 static gboolean gst_camerasrc_set_isp_control (GstCamerasrcIsp *camIsp, unsigned int tag, void *data)
 {
@@ -3177,7 +3177,7 @@ static gboolean gst_camerasrc_set_isp_control (GstCamerasrcIsp *camIsp, unsigned
 * param[in]        camIsp        Camera Source handle
 * param[in]        tag           The control tag
 * param[out]       tag           The data pointer to get
-* return 0 if set successfully, otherwise non-0 value is returned
+* return TRUE if set successfully, otherwise FALSE is returned
 */
 static gboolean gst_camerasrc_get_isp_control (GstCamerasrcIsp *camIsp, unsigned int tag, void * data)
 {
@@ -3195,7 +3195,7 @@ static gboolean gst_camerasrc_get_isp_control (GstCamerasrcIsp *camIsp, unsigned
 /* Apply the data cached in param to isp
  *
  * param[in]        camIsp        Camera Source handle
- * return TRUE if set successfully, otherwise non-0 value is returned
+ * return TRUE if set successfully, otherwise FALSE is returned
  */
 static gboolean gst_camerasrc_apply_isp_control (GstCamerasrcIsp *camIsp)
 {
@@ -3209,74 +3209,26 @@ static gboolean gst_camerasrc_apply_isp_control (GstCamerasrcIsp *camIsp)
   return (ret == 0 ? TRUE : FALSE);
 }
 
-#if 0
-static gboolean
-gst_camerasrc_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
-{
-  gboolean ret;
-
-  switch (GST_EVENT_TYPE (event)) {
-    case GST_EVENT_CAPS:
-      {
-        GstCaps * caps;
-
-        gst_event_parse_caps (event, &caps);
-        /* do something with the caps */
-
-        /* and forward */
-        ret = gst_pad_event_default (pad, parent, event);
-        break;
-      }
-    default:
-      ret = gst_pad_event_default (pad, parent, event);
-      break;
-  }
-  return ret;
-}
-
-static GstFlowReturn
-gst_camerasrc_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
-{
-  Gstcamerasrc *src;
-
-  src = GST_CAMERASRC (parent);
-
-  if (src->silent == FALSE)
-    g_print ("I'm plugged, therefore I'm in.\n");
-
-  /* just push out the incoming buffer without touching it */
-  return gst_pad_push (src->srcpad, buf);
-}
-#endif
-
 /* entry point to initialize the plug-in
  * initialize the plug-in itself
  * register the element factories and other features
  * then GST_PLUGIN_DEFINE will work
  */
 static gboolean
-camerasrc_init (GstPlugin * Plugin)
+plugin_init (GstPlugin * Plugin)
 {
   PERF_CAMERA_ATRACE();
-  if(!gst_element_register (Plugin, "icamerasrc", GST_RANK_NONE,
-        GST_TYPE_CAMERASRC)){
-    return FALSE;
-  }
-  return TRUE;
+
+  return gst_element_register (Plugin, "icamerasrc", GST_RANK_NONE,
+        GST_TYPE_CAMERASRC);
 }
 
 /* gstreamer looks for this structure to register camerasrcs
  *
- * exchange the string 'Template camerasrc' with your camerasrc description
  */
 GST_PLUGIN_DEFINE (
     GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     icamerasrc,
-    "Template icamerasrc",
-    camerasrc_init,
-    VERSION,
-    "LGPL",
-    "GStreamer",
-    "http://gstreamer.net/"
-    )
+    "camera source plugins based on libcamhal",
+    plugin_init, VERSION,GST_LICENSE, GST_PACKAGE_NAME, GST_PACKAGE_ORIGIN)

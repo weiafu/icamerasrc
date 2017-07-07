@@ -97,6 +97,26 @@ AC_ARG_WITH([androidstubs],
 AC_ARG_VAR([DEFAULT_CAMERA],
   [the default camera ID])
 
+dnl set license and copyright notice
+GST_LICENSE="LGPL"
+AC_DEFINE_UNQUOTED(GST_LICENSE, "$GST_LICENSE", [GStreamer license])
+AC_SUBST(GST_LICENSE)
+
+dnl set API Version
+GST_API_VERSION=1.0
+AC_DEFINE_UNQUOTED(GST_API_VERSION, "$GST_API_VERSION", [GStreamer API Version])
+AC_SUBST(GST_API_VERSION)
+
+dnl set Package Origin
+GST_PACKAGE_ORIGIN="https://developer.gnome.org/gstreamer/"
+AC_DEFINE_UNQUOTED(GST_PACKAGE_ORIGIN, "$GST_PACKAGE_ORIGIN", [Gstreamer Package Origin])
+AC_SUBST(GST_PACKAGE_ORIGIN)
+
+dnl set Package Name
+GST_PACKAGE_NAME="Gstreamer"
+AC_DEFINE_UNQUOTED(GST_PACKAGE_NAME, "$GST_PACKAGE_NAME", [Gstreamer Package Name])
+AC_SUBST(GST_PACKAGE_NAME)
+
 AC_LANG_PUSH([C++])
 # Checks for headers - these don't work with bitbake so can be disabled
 AS_IF([test "x$with_headercheck" == xyes],
