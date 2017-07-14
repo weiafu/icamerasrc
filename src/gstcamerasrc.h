@@ -117,6 +117,8 @@ using std::set;
 #define DEFAULT_PROP_VIDEO_STABILIZATION_MODE GST_CAMERASRC_VIDEO_STABILIZATION_MODE_OFF
 /* Default value of enum type property 'buffer-flag': read */
 #define DEFAULT_PROP_BUFFER_USAGE GST_CAMERASRC_BUFFER_USAGE_NONE
+/* Default value of enum type property 'fisheye-dewarping':off */
+#define DEFAULT_PROP_FISHEYE_DEWARPING_MODE GST_CAMERASRC_FISHEYE_DEWARPING_MODE_OFF
 
 /* Default value of string type properties */
 #define DEFAULT_PROP_WP NULL
@@ -286,6 +288,13 @@ typedef enum
   GST_CAMERASRC_VIDEO_STABILIZATION_MODE_OFF = 0,
   GST_CAMERASRC_VIDEO_STABILIZATION_MODE_ON = 1,
 } GstCamerasrcVideoStabilizationMode;
+
+typedef enum
+{
+  GST_CAMERASRC_FISHEYE_DEWARPING_MODE_OFF = 0,
+  GST_CAMERASRC_FISHEYE_DEWARPING_MODE_REARVIEW = 1,
+  GST_CAMERASRC_FISHEYE_DEWARPING_MODE_HITCHVIEW = 2,
+} GstCamerasrcFisheydDewarpingMode;
 
 #define GST_TYPE_CAMERASRC \
   (gst_camerasrc_get_type())
@@ -473,6 +482,7 @@ struct _Gstcamerasrc
   int deinterlace_method;
   int io_mode;
   int video_stabilization_mode;
+  int fisheye_dewarping_mode;
   int buffer_usage;
   guint number_of_buffers;
   guint num_vc;

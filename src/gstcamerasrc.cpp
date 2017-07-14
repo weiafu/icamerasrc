@@ -141,6 +141,7 @@ enum
   PROP_INPUT_WIDTH,
   PROP_INPUT_HEIGHT,
   PROP_ISP_CONTROL,
+  PROP_FISHEYE_DEWARPING_MODE,
 };
 
 #define gst_camerasrc_parent_class parent_class
@@ -413,6 +414,28 @@ gst_camerasrc_video_stabilization_mode_get_type(void)
     video_stabilization_mode_type = g_enum_register_static ("GstCamerasrcVideoStabilizationMode", modes);
   }
   return video_stabilization_mode_type;
+}
+
+static GType
+gst_camerasrc_fisheye_dewarping_mode_get_type(void)
+{
+  PERF_CAMERA_ATRACE();
+  static GType fisheye_dewarping_mode_type = 0;
+
+  static const GEnumValue modes[] = {
+    {GST_CAMERASRC_FISHEYE_DEWARPING_MODE_OFF,
+          "Off", "off"},
+    {GST_CAMERASRC_FISHEYE_DEWARPING_MODE_REARVIEW,
+          "Rearview", "rearview"},
+    {GST_CAMERASRC_FISHEYE_DEWARPING_MODE_HITCHVIEW,
+          "Hitchview", "hitchview"},
+    {0, NULL, NULL},
+   };
+
+  if (!fisheye_dewarping_mode_type) {
+    fisheye_dewarping_mode_type = g_enum_register_static ("GstCamerasrcFisheyeDewarpingMode", modes);
+  }
+  return fisheye_dewarping_mode_type;
 }
 
 static GType
@@ -942,6 +965,10 @@ gst_camerasrc_class_init (GstcamerasrcClass * klass)
       g_param_spec_enum ("video-stabilization-mode", "Video stabilization mode", "Video stabilization mode",
           gst_camerasrc_video_stabilization_mode_get_type(), DEFAULT_PROP_VIDEO_STABILIZATION_MODE, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+  g_object_class_install_property (gobject_class, PROP_FISHEYE_DEWARPING_MODE,
+      g_param_spec_enum("fisheye-dewarping-mode","fisheye dewarpingmode","The fisheye dewarping mode used in the LDC correction",
+          gst_camerasrc_fisheye_dewarping_mode_get_type(), DEFAULT_PROP_FISHEYE_DEWARPING_MODE, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
   g_object_class_install_property (gobject_class, PROP_INPUT_FORMAT,
       g_param_spec_string("input-format","Input format","The format used for input system",
         DEFAULT_PROP_INPUT_FORMAT, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
@@ -949,6 +976,7 @@ gst_camerasrc_class_init (GstcamerasrcClass * klass)
   g_object_class_install_property (gobject_class, PROP_INPUT_WIDTH,
       g_param_spec_int("input-width","Input width","The width used for input system",
         MIN_PROP_INPUT_WIDTH, MAX_PROP_INPUT_WIDTH, DEFAULT_PROP_INPUT_WIDTH, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
 
   g_object_class_install_property (gobject_class, PROP_INPUT_HEIGHT,
       g_param_spec_int("input-height","Input height","The height used for input system",
@@ -1021,6 +1049,7 @@ gst_camerasrc_init (Gstcamerasrc * camerasrc)
   camerasrc->num_vc = 0;
   camerasrc->debugLevel = 0;
   camerasrc->video_stabilization_mode = DEFAULT_PROP_VIDEO_STABILIZATION_MODE;
+  camerasrc->fisheye_dewarping_mode = DEFAULT_PROP_FISHEYE_DEWARPING_MODE;
   camerasrc->input_fmt = DEFAULT_PROP_INPUT_FORMAT;
   camerasrc->buffer_usage= DEFAULT_PROP_BUFFER_USAGE;
   camerasrc->input_config.width = DEFAULT_PROP_INPUT_WIDTH;
@@ -1741,6 +1770,10 @@ gst_camerasrc_set_property (GObject * object, guint prop_id,
       src->param->setVideoStabilizationMode((camera_video_stabilization_mode_t)g_value_get_enum(value));
       src->video_stabilization_mode = g_value_get_enum (value);
       break;
+    case PROP_FISHEYE_DEWARPING_MODE:
+      src->param->setFisheyeDewarpingMode((camera_fisheye_dewarping_mode_t)g_value_get_enum(value));
+      src->fisheye_dewarping_mode = g_value_get_enum (value);
+      break;
     case PROP_INPUT_FORMAT:
       src->input_fmt = g_strdup(g_value_get_string (value));
       break;
@@ -1911,6 +1944,9 @@ gst_camerasrc_get_property (GObject * object, guint prop_id,
       break;
     case PROP_VIDEO_STABILIZATION_MODE:
       g_value_set_enum (value, src->video_stabilization_mode);
+      break;
+    case PROP_FISHEYE_DEWARPING_MODE:
+      g_value_set_enum (value, src->fisheye_dewarping_mode);
       break;
     case PROP_INPUT_FORMAT:
       g_value_set_string (value, src->input_fmt);
