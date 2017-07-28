@@ -142,6 +142,7 @@ enum
   PROP_INPUT_HEIGHT,
   PROP_ISP_CONTROL,
   PROP_FISHEYE_DEWARPING_MODE,
+  PROP_LTM_TUNING_DATA,
 };
 
 #define gst_camerasrc_parent_class parent_class
@@ -244,6 +245,8 @@ static gboolean gst_camerasrc_set_sensitivity_gain_range (GstCamerasrc3A *cam3a,
 static gboolean gst_camerasrc_set_isp_control (GstCamerasrcIsp *camIsp, unsigned int tag, void *data);
 static gboolean gst_camerasrc_get_isp_control (GstCamerasrcIsp *camIsp, unsigned int tag, void *data);
 static gboolean gst_camerasrc_apply_isp_control (GstCamerasrcIsp *camIsp);
+static gboolean gst_camerasrc_set_ltm_tuning_data (GstCamerasrcIsp *camIsp, void *data);
+static gboolean gst_camerasrc_get_ltm_tuning_data (GstCamerasrcIsp *camIsp, void *data);
 
 #if 0
 static gboolean gst_camerasrc_sink_event(GstPad * pad, GstObject * parent, GstEvent * event);
@@ -990,6 +993,10 @@ gst_camerasrc_class_init (GstcamerasrcClass * klass)
       g_param_spec_string("isp-control","isp control","Use a file which contains the detial settings to control isp",
         DEFAULT_PROP_ISP_CONTROL,(GParamFlags)(G_PARAM_STATIC_STRINGS | G_PARAM_WRITABLE)));
 
+  g_object_class_install_property(gobject_class,PROP_LTM_TUNING_DATA,
+      g_param_spec_string("ltm-tuning","ltm tuning","Use a file which contains the ltm tuning data",
+        DEFAULT_PROP_LTM_TUNING_DATA,(GParamFlags)(G_PARAM_STATIC_STRINGS | G_PARAM_WRITABLE)));
+
   gst_element_class_set_static_metadata(gstelement_class,
       "icamerasrc",
       "Source/Video",
@@ -1144,6 +1151,8 @@ gst_camerasrc_isp_interface_init (GstCamerasrcIspInterface *ispIface)
   ispIface->set_isp_control = gst_camerasrc_set_isp_control;
   ispIface->get_isp_control = gst_camerasrc_get_isp_control;
   ispIface->apply_isp_control = gst_camerasrc_apply_isp_control;
+  ispIface->set_ltm_tuning_data = gst_camerasrc_set_ltm_tuning_data;
+  ispIface->get_ltm_tuning_data = gst_camerasrc_get_ltm_tuning_data;
 }
 
 /**
@@ -1496,6 +1505,40 @@ gst_camerasrc_analyze_isp_control(Gstcamerasrc *src, const char *bin_name)
   return 0;
 }
 
+static int
+gst_camerasrc_set_ltm_tuning_data_from_file(Gstcamerasrc *src, const char *bin_name)
+{
+  int len = 0;
+  struct stat st;
+  FILE *fp = NULL;
+  char *buffer = NULL;
+
+  if (bin_name == NULL || (stat(bin_name, &st) != 0)) {
+    GST_ERROR("The binary file for ltm tuning data doesn't exist");
+    return -1;
+  }
+
+  if ((fp = fopen(bin_name, "r")) == NULL) {
+    GST_ERROR("Failed to open the isp control file");
+    return -1;
+  }
+
+  buffer = new char[MAX_ISP_SETTINGS_SIZE];
+  len = (int)fread(buffer, 1, MAX_ISP_SETTINGS_SIZE, fp);
+  fclose(fp);
+  if (!len) {
+    GST_ERROR("Failed to read the isp control file");
+    delete[] buffer;
+    return -1;
+  }
+  g_message("%s, The ltm tuning data length %d", __func__, len);
+
+  src->param->setLtmTuningData(buffer);
+  delete[] buffer;
+
+  return 0;
+}
+
 static void
 gst_camerasrc_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
@@ -1791,6 +1834,12 @@ gst_camerasrc_set_property (GObject * object, guint prop_id,
       ret = gst_camerasrc_analyze_isp_control(src, bin_name);
       if (ret != 0)
         GST_ERROR("Failed to set isp control: please check the settings in file");
+      break;
+    case PROP_LTM_TUNING_DATA:
+      bin_name = g_value_get_string (value);
+      ret = gst_camerasrc_set_ltm_tuning_data_from_file(src, bin_name);
+      if (ret != 0)
+        GST_ERROR("Failed to set ltm tuning data: please check data in the bin file");
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -3212,7 +3261,7 @@ static gboolean gst_camerasrc_set_isp_control (GstCamerasrcIsp *camIsp, unsigned
  *
 * param[in]        camIsp        Camera Source handle
 * param[in]        tag           The control tag
-* param[out]       tag           The data pointer to get
+* param[out]       data          The data pointer to get
 * return TRUE if set successfully, otherwise FALSE is returned
 */
 static gboolean gst_camerasrc_get_isp_control (GstCamerasrcIsp *camIsp, unsigned int tag, void * data)
@@ -3241,6 +3290,43 @@ static gboolean gst_camerasrc_apply_isp_control (GstCamerasrcIsp *camIsp)
   camerasrc->param->setEnabledIspControls(*(camerasrc->isp_control_tags));
   ret = camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
   g_message("Interface Called: @%s", __func__);
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Get the ltm tuning data
+ *
+* param[in]        camIsp        Camera Source handle
+* param[out]       data          The ltm tuning data pointer to get
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_get_ltm_tuning_data(GstCamerasrcIsp *camIsp, void *data)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camIsp);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.getLtmTuningData(data);
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Set the ltm tuning data
+ *
+* param[in]        camIsp        Camera Source handle
+* param[in]        data          The ltm tuning data pointer to set
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_set_ltm_tuning_data(GstCamerasrcIsp *camIsp, void *data)
+{
+  int ret = 0;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camIsp);
+  g_message("Enter %s", __func__);
+
+  camerasrc->param->setLtmTuningData(data);
+  ret = camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
 
   return (ret == 0 ? TRUE : FALSE);
 }

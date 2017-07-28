@@ -103,6 +103,22 @@ struct _GstCamerasrcIspInterface {
    * return TRUE if set successfully, otherwise non-0 value is returned
    */
   gboolean      (*apply_isp_control)      (GstCamerasrcIsp *camIsp);
+
+  /* Set ltm tuning data
+   *
+   * param[in]        camIsp        Camera Source handle
+   * param[in]        data          The ltm tuning data pointer
+   * return TRUE if set successfully, otherwise non-0 value is returned
+   */
+  gboolean      (*set_ltm_tuning_data)   (GstCamerasrcIsp *camIsp, void *data);
+
+  /* Get ltm tuning data
+   *
+   * param[in]        camIsp        Camera Source handle
+   * param[out]       data          the ltm tuning data pointer to get
+   * return TRUE if set successfully, otherwise non-0 value is returned
+   */
+  gboolean      (*get_ltm_tuning_data)   (GstCamerasrcIsp *camIsp, void *data);
 };
 
 GType gst_camerasrc_isp_interface_get_type(void);

@@ -86,4 +86,6 @@ gst_camerasrc_isp_iface_init (GstCamerasrcIspInterface *ispIface)
   ispIface->set_isp_control = NULL;
   ispIface->get_isp_control = NULL;
   ispIface->apply_isp_control = NULL;
+  ispIface->set_ltm_tuning_data = NULL;
+  ispIface->get_ltm_tuning_data = NULL;
 }
