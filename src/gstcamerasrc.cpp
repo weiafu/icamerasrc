@@ -1052,7 +1052,7 @@ gst_camerasrc_init (Gstcamerasrc * camerasrc)
   camerasrc->device_id = DEFAULT_PROP_DEVICE_ID;
   camerasrc->camera_open = FALSE;
   camerasrc->first_frame = TRUE;
-  camerasrc->running = FALSE;
+  camerasrc->running = GST_CAMERASRC_STATUS_DEFAULT;
   camerasrc->num_vc = 0;
   camerasrc->debugLevel = 0;
   camerasrc->video_stabilization_mode = DEFAULT_PROP_VIDEO_STABILIZATION_MODE;
@@ -2373,18 +2373,20 @@ gst_camerasrc_change_state (GstElement * element, GstStateChange transition)
   switch (transition) {
     case GST_STATE_CHANGE_NULL_TO_READY:
     case GST_STATE_CHANGE_READY_TO_PAUSED:
+      camerasrc->running = GST_CAMERASRC_STATUS_DEFAULT;
       break;
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
       /* element start processing buffers or data and start streaming */
-      camerasrc->running = TRUE;
+      camerasrc->running = GST_CAMERASRC_STATUS_RUNNING;
       break;
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       /* element ceases processing buffers or data and exit streaming */
-      camerasrc->running = FALSE;
+      camerasrc->running = GST_CAMERASRC_STATUS_STOP;
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
     case GST_STATE_CHANGE_READY_TO_NULL:
     default:
+      camerasrc->running = GST_CAMERASRC_STATUS_DEFAULT;
       break;
   }
 

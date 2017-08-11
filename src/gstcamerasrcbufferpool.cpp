@@ -869,7 +869,7 @@ gst_camerasrc_buffer_pool_release_buffer (GstBufferPool * bpool, GstBuffer * buf
 
   /* in PLAYING->PAUSED state, no need to check if queue has available buffer, unlock qbuf_mutex
   * immediately and quit function so pipeline can cease normally */
-  if (!camerasrc->running) {
+  if (camerasrc->running == GST_CAMERASRC_STATUS_STOP) {
     GST_INFO("CameraId=%d, StreamId=%d is exiting.", camerasrc->device_id, pool->stream_id);
     g_mutex_unlock(&camerasrc->qbuf_mutex);
     return;

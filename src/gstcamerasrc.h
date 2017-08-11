@@ -297,6 +297,13 @@ typedef enum
   GST_CAMERASRC_FISHEYE_DEWARPING_MODE_HITCHVIEW = 2,
 } GstCamerasrcFisheydDewarpingMode;
 
+typedef enum
+{
+  GST_CAMERASRC_STATUS_DEFAULT = 0,
+  GST_CAMERASRC_STATUS_RUNNING = 1,
+  GST_CAMERASRC_STATUS_STOP = 2,
+} GstCamerasrcRunningStat;
+
 #define GST_TYPE_CAMERASRC \
   (gst_camerasrc_get_type())
 #define GST_CAMERASRC(obj) \
@@ -463,7 +470,7 @@ struct _Gstcamerasrc
   gboolean camera_open;
   Parameters *param;
   set <unsigned int> *isp_control_tags;
-  gboolean running;
+  GstCamerasrcRunningStat running;
 
   /* Used with GST_CAMSRC_LOCK and GST_CAMSRC_WAIT etc. */
   GMutex lock;
