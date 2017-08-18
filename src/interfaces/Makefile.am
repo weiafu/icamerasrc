@@ -44,7 +44,8 @@
 lib_LTLIBRARIES = libgsticamerainterface.la
 
 libgsticamerainterface_la_SOURCES = gstcamera3ainterface.cpp \
-                                    gstcameraispinterface.cpp
+                                    gstcameraispinterface.cpp \
+                                    gstcameradewarpinginterface.cpp
 
 libgsticamerainterface_la_CPPFLAGS = -std=c++11 \
     -Wall -Werror \
@@ -66,4 +67,5 @@ libgsticamerainterface_la_LIBTOOLFLAGS = --tag=disable-static
 libgsticamerainterfaceincludedir = $(inludedir)
 
 libgsticamerainterfaceinclude_HEADERS = gstcamera3ainterface.h \
-                                        gstcameraispinterface.h
+                                        gstcameraispinterface.h \
+                                        gstcameradewarpinginterface.h

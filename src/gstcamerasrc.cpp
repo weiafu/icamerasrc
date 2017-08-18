@@ -66,6 +66,7 @@
 #include "gstcameraformat.h"
 #include "gstcamera3ainterface.h"
 #include "gstcameraispinterface.h"
+#include "gstcameradewarpinginterface.h"
 #include "utils.h"
 
 using namespace icamera;
@@ -149,10 +150,13 @@ enum
 
 static void gst_camerasrc_3a_interface_init (GstCamerasrc3AInterface *iface);
 static void gst_camerasrc_isp_interface_init (GstCamerasrcIspInterface *ispIface);
+static void gst_camerasrc_dewarping_interface_init (GstCamerasrcDewarpingInterface *dewarpingIface);
+
 
 G_DEFINE_TYPE_WITH_CODE (Gstcamerasrc, gst_camerasrc, GST_TYPE_CAM_PUSH_SRC,
         G_IMPLEMENT_INTERFACE(GST_TYPE_CAMERASRC_3A_IF, gst_camerasrc_3a_interface_init);
-        G_IMPLEMENT_INTERFACE(GST_TYPE_CAMERASRC_ISP_IF, gst_camerasrc_isp_interface_init));
+        G_IMPLEMENT_INTERFACE(GST_TYPE_CAMERASRC_ISP_IF, gst_camerasrc_isp_interface_init);
+        G_IMPLEMENT_INTERFACE(GST_TYPE_CAMERASRC_DEWARPING_IF, gst_camerasrc_dewarping_interface_init));
 
 static void gst_camerasrc_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
@@ -247,6 +251,9 @@ static gboolean gst_camerasrc_get_isp_control (GstCamerasrcIsp *camIsp, unsigned
 static gboolean gst_camerasrc_apply_isp_control (GstCamerasrcIsp *camIsp);
 static gboolean gst_camerasrc_set_ltm_tuning_data (GstCamerasrcIsp *camIsp, void *data);
 static gboolean gst_camerasrc_get_ltm_tuning_data (GstCamerasrcIsp *camIsp, void *data);
+
+static gboolean gst_camerasrc_set_dewarping_mode (GstCamerasrcDewarping *camDewarping, camera_fisheye_dewarping_mode_t mode);
+static gboolean gst_camerasrc_get_dewarping_mode (GstCamerasrcDewarping *camDewarping, camera_fisheye_dewarping_mode_t &mode);
 
 #if 0
 static gboolean gst_camerasrc_sink_event(GstPad * pad, GstObject * parent, GstEvent * event);
@@ -1153,6 +1160,13 @@ gst_camerasrc_isp_interface_init (GstCamerasrcIspInterface *ispIface)
   ispIface->apply_isp_control = gst_camerasrc_apply_isp_control;
   ispIface->set_ltm_tuning_data = gst_camerasrc_set_ltm_tuning_data;
   ispIface->get_ltm_tuning_data = gst_camerasrc_get_ltm_tuning_data;
+}
+
+static void
+gst_camerasrc_dewarping_interface_init (GstCamerasrcDewarpingInterface *dewarpingIface)
+{
+  dewarpingIface->set_dewarping_mode = gst_camerasrc_set_dewarping_mode;
+  dewarpingIface->get_dewarping_mode = gst_camerasrc_get_dewarping_mode;
 }
 
 /**
@@ -3329,6 +3343,44 @@ static gboolean gst_camerasrc_set_ltm_tuning_data(GstCamerasrcIsp *camIsp, void 
 
   camerasrc->param->setLtmTuningData(data);
   ret = camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Set the dewarping mode
+ *
+* param[in]        camDewarping         Camera Source handle
+* param[in]        mode                 The dewarping mode to set
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_set_dewarping_mode (GstCamerasrcDewarping *camDewarping, camera_fisheye_dewarping_mode_t mode)
+{
+  int ret = 0;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camDewarping);
+  g_message("Enter %s", __func__);
+
+  camerasrc->param->setFisheyeDewarpingMode(mode);
+  ret = camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Get the dewarping mode
+ *
+* param[in]        camDewarping         Camera Source handle
+* param[out]       mode                 The dewarping mode to be returned
+* return TRUE if get successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_get_dewarping_mode (GstCamerasrcDewarping *camDewarping, camera_fisheye_dewarping_mode_t &mode)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camDewarping);
+  g_message("Enter %s", __func__);
+
+  camerasrc->param->getFisheyeDewarpingMode(mode);
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.getFisheyeDewarpingMode(mode);
 
   return (ret == 0 ? TRUE : FALSE);
 }
