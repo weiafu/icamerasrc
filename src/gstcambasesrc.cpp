@@ -725,6 +725,7 @@ gst_cam_base_src_send_stream_start (GstCamBaseSrc * src)
     ret = gst_pad_push_event (src->srcpad, event);
     src->priv->stream_start_pending = FALSE;
     g_free (stream_id);
+    g_free (name);
   }
 
   return ret;
@@ -747,6 +748,7 @@ gst_cam_base_src_send_video_stream_start (GstCamBaseSrc *src)
     ret = gst_pad_push_event(src->videopad, event);
     src->priv->vid_stream_start_pending = FALSE;
     g_free(vid_stream_id);
+    g_free (name);
   }
 
   return ret;
@@ -770,10 +772,11 @@ gst_cam_base_src_set_caps (GstCamBaseSrc * src, GstPad * pad, GstCaps * caps)
   GstCaps *current_caps = NULL;
   const char *format;
   int width, height;
+  gchar *padname = gst_pad_get_name(pad);
 
   CameraSrcUtils::get_stream_info_by_caps(caps, &format, &width, &height);
   GST_INFO("pad:%s, format:%s width:%d height:%d\n",
-    gst_pad_get_name(pad), format, width, height);
+    padname, format, width, height);
 
   bclass = GST_CAM_BASE_SRC_GET_CLASS (src);
 
@@ -802,6 +805,8 @@ gst_cam_base_src_set_caps (GstCamBaseSrc * src, GstPad * pad, GstCaps * caps)
 
   if (current_caps)
     gst_caps_unref (current_caps);
+
+  g_free (padname);
 
   return res;
 }
@@ -2471,7 +2476,7 @@ gst_cam_base_src_get_range (GstCamBaseSrc * src, GstPad *pad, guint64 offset,
   GstClockReturn status;
   GstBuffer *res_buf;
   GstBuffer *in_buf;
-  const char *padname = gst_pad_get_name(pad);
+  gchar *padname = gst_pad_get_name(pad);
 
   bclass = GST_CAM_BASE_SRC_GET_CLASS (src);
 
@@ -2617,6 +2622,8 @@ again:
   if (G_LIKELY (ret == GST_FLOW_OK))
     *buf = res_buf;
 
+  g_free (padname);
+
   return ret;
 
   /* ERROR */
@@ -2624,12 +2631,14 @@ stopped:
   {
     GST_DEBUG_OBJECT (src, "%s pad: wait_playing returned %d (%s)", padname,
         ret, gst_flow_get_name (ret));
+    g_free (padname);
     return ret;
   }
 not_ok:
   {
     GST_DEBUG_OBJECT (src, "%s pad: create returned %d (%s)", padname, ret,
         gst_flow_get_name (ret));
+    g_free (padname);
     return ret;
   }
 map_failed:
@@ -2637,6 +2646,7 @@ map_failed:
     GST_ELEMENT_ERROR (src, RESOURCE, BUSY,
         ("%s pad: failed to map buffer.", padname),
         ("failed to map result buffer in WRITE mode"));
+    g_free (padname);
     if (*buf == NULL)
       gst_buffer_unref (res_buf);
     return GST_FLOW_ERROR;
@@ -2644,27 +2654,32 @@ map_failed:
 not_started:
   {
     GST_DEBUG_OBJECT (src, "%s pad: getrange but not started", padname);
+    g_free (padname);
     return GST_FLOW_FLUSHING;
   }
 no_function:
   {
     GST_DEBUG_OBJECT (src, "%s pad: no create function", padname);
+    g_free (padname);
     return GST_FLOW_NOT_SUPPORTED;
   }
 unexpected_length:
   {
     GST_DEBUG_OBJECT (src, "%s pad: unexpected length %u (offset=%" G_GUINT64_FORMAT
         ", size=%" G_GINT64_FORMAT ")", padname, length, offset, src->segment.duration);
+    g_free (padname);
     return GST_FLOW_EOS;
   }
 reached_num_buffers:
   {
     GST_DEBUG_OBJECT (src, "%s pad: sent all buffers", padname);
+    g_free (padname);
     return GST_FLOW_EOS;
   }
 flushing:
   {
     GST_DEBUG_OBJECT (src, "%s pad: we are flushing", padname);
+    g_free (padname);
     if (*buf == NULL)
       gst_buffer_unref (res_buf);
     return GST_FLOW_FLUSHING;
@@ -2672,6 +2687,7 @@ flushing:
 eos:
   {
     GST_DEBUG_OBJECT (src, "%s pad: we are EOS", padname);
+    g_free (padname);
     return GST_FLOW_EOS;
   }
 }
@@ -2684,7 +2700,7 @@ gst_cam_base_src_video_get_range (GstCamBaseSrc * src, GstPad *pad, guint64 offs
   GstCamBaseSrcClass *bclass;
   GstBuffer *res_buf, *in_buf;
   GstClockReturn status;
-  const char *padname = gst_pad_get_name(pad);
+  gchar *padname = gst_pad_get_name(pad);
 
   bclass = GST_CAM_BASE_SRC_GET_CLASS(src);
 
@@ -2731,26 +2747,32 @@ again:
   if (G_LIKELY(ret == GST_FLOW_OK))
     *buf = res_buf;
 
+  g_free (padname);
+
   return ret;
 not_ok:
   {
     GST_DEBUG_OBJECT (src, "%s pad: create returned %d (%s)", padname,
         ret, gst_flow_get_name (ret));
+    g_free (padname);
     return ret;
   }
 not_started:
   {
     GST_DEBUG_OBJECT (src, "%s pad: getrange but not started", padname);
+    g_free (padname);
     return GST_FLOW_FLUSHING;
   }
 reached_num_buffers:
   {
     GST_DEBUG_OBJECT (src, "%s pad: sent all buffers", padname);
+    g_free (padname);
     return GST_FLOW_EOS;
   }
 flushing:
   {
     GST_DEBUG_OBJECT (src, "%s pad: we are flushing", padname);
+    g_free (padname);
     if (*buf == NULL)
       gst_buffer_unref (res_buf);
     return GST_FLOW_FLUSHING;
@@ -2758,6 +2780,7 @@ flushing:
 eos:
   {
     GST_DEBUG_OBJECT (src, "%s pad: we are EOS", padname);
+    g_free (padname);
     return GST_FLOW_EOS;
   }
 }
@@ -2827,7 +2850,7 @@ gst_cam_base_src_loop (GstPad * pad)
   gboolean eos;
   guint blocksize;
   GList *pending_events = NULL, *tmp;
-  const char *padname = gst_pad_get_name(pad);
+  gchar *padname = gst_pad_get_name(pad);
 
   eos = FALSE;
 
@@ -3020,6 +3043,7 @@ gst_cam_base_src_loop (GstPad * pad)
   }
 
 done:
+  g_free (padname);
   return;
 
   /* special cases */
@@ -3027,6 +3051,7 @@ not_negotiated:
   {
     if (gst_pad_needs_reconfigure (pad)) {
       GST_DEBUG_OBJECT (src, "%s pad: Retrying to renegotiate", padname);
+      g_free (padname);
       return;
     }
     /* fallthrough when push returns NOT_NEGOTIATED and we don't have
@@ -3117,7 +3142,7 @@ static void gst_cam_base_src_video_loop (GstPad * pad)
   gint64 position = 0;
   GstFlowReturn ret = GST_FLOW_OK;
   guint blocksize;
-  const char *padname = gst_pad_get_name(pad);
+  gchar *padname = gst_pad_get_name(pad);
   GstCamBaseSrc *src = GST_CAM_BASE_SRC(GST_OBJECT_PARENT(pad));
 
   gst_cam_base_src_send_video_stream_start(src);
@@ -3192,6 +3217,7 @@ static void gst_cam_base_src_video_loop (GstPad * pad)
   }
 
 done:
+  g_free (padname);
   return;
 
 flushing:
@@ -3446,6 +3472,7 @@ gst_cam_base_src_prepare_allocation (GstCamBaseSrc * basesrc, GstCaps * caps, Gs
   GstBufferPool *pool = NULL;
   GstAllocator *allocator = NULL;
   GstAllocationParams params;
+  gchar *padname = gst_pad_get_name(pad);
 
   bclass = GST_CAM_BASE_SRC_GET_CLASS (basesrc);
 
@@ -3456,14 +3483,14 @@ gst_cam_base_src_prepare_allocation (GstCamBaseSrc * basesrc, GstCaps * caps, Gs
   if (!gst_pad_peer_query (pad, query)) {
     /* not a problem, just debug a little */
     GST_DEBUG_OBJECT (basesrc, "%s pad: peer ALLOCATION query failed",
-      gst_pad_get_name(pad));
+      padname);
   }
 
   g_assert (bclass->decide_allocation != NULL);
   result = bclass->decide_allocation (basesrc, query, pad);
 
   GST_DEBUG_OBJECT (basesrc, "%s pad: ALLOCATION (%d) params: %" GST_PTR_FORMAT,
-    gst_pad_get_name(pad), result, query);
+    padname, result, query);
 
   if (!result)
     goto no_decide_allocation;
@@ -3488,6 +3515,8 @@ gst_cam_base_src_prepare_allocation (GstCamBaseSrc * basesrc, GstCaps * caps, Gs
     gst_object_unref (pool);
 
   gst_query_unref (query);
+
+  g_free (padname);
 
   return result;
 
@@ -3583,11 +3612,12 @@ gst_cam_base_src_negotiate (GstCamBaseSrc * basesrc, GstPad *pad)
 {
   GstCamBaseSrcClass *bclass;
   gboolean result;
+  gchar *padname = gst_pad_get_name(pad);
 
   bclass = GST_CAM_BASE_SRC_GET_CLASS (basesrc);
 
   GST_DEBUG_OBJECT (basesrc, "%s pad: starting negotiation",
-    gst_pad_get_name(pad));
+    padname);
 
   /* call default negotiate function to fixate and set caps */
   if (G_LIKELY (bclass->negotiate))
@@ -3605,6 +3635,7 @@ gst_cam_base_src_negotiate (GstCamBaseSrc * basesrc, GstPad *pad)
     if (caps)
       gst_caps_unref (caps);
   }
+  g_free (padname);
   return result;
 }
 
@@ -4167,9 +4198,10 @@ gst_cam_base_src_activate_mode (GstPad * pad, GstObject * parent,
 {
     gboolean res = TRUE;
     GstCamBaseSrc *src = GST_CAM_BASE_SRC (parent);
+    gchar *padname = gst_pad_get_name(pad);
 
     GST_DEBUG_OBJECT (pad, "activating %s pad in mode %s",
-       gst_pad_get_name(pad), gst_pad_mode_get_name(mode));
+       padname, gst_pad_mode_get_name(mode));
 
     switch (mode) {
       case GST_PAD_MODE_PULL:
@@ -4190,6 +4222,7 @@ gst_cam_base_src_activate_mode (GstPad * pad, GstObject * parent,
         res = FALSE;
         break;
     }
+    g_free (padname);
     return res;
 }
 

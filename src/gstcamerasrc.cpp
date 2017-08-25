@@ -1213,11 +1213,13 @@ static GstPad *gst_camerasrc_request_new_pad (GstElement * element,
 static void gst_camerasrc_release_pad (GstElement * element, GstPad * pad)
 {
   Gstcamerasrc *camerasrc = GST_CAMERASRC(element);
+  gchar *padname = gst_pad_get_name(pad);
   GST_INFO("CameraId=%d.", camerasrc->device_id);
-  camerasrc->stream_map.erase(gst_pad_get_name(pad));
+  camerasrc->stream_map.erase(padname);
   camerasrc->number_of_activepads--;
   gst_pad_set_active(pad, FALSE);
   gst_element_remove_pad (element, pad);
+  g_free (padname);
 }
 
 /**
@@ -2035,7 +2037,7 @@ gst_camerasrc_get_stream_id_by_pad(Gstcamerasrc *camerasrc,
                                GstPad *pad)
 {
   int stream_id = -1;
-  const char *name = gst_pad_get_name(pad);
+  gchar *name = gst_pad_get_name(pad);
 
   map<std::string, int> :: iterator iter;
   iter = camerasrc->stream_map.find(name);
@@ -2043,8 +2045,11 @@ gst_camerasrc_get_stream_id_by_pad(Gstcamerasrc *camerasrc,
     stream_id = iter->second;
   else {
     GST_ERROR("CameraId=%d failed to get StreamId: %d", camerasrc->device_id, stream_id);
+    g_free (name);
     return -1;
   }
+
+  g_free (name);
 
   return stream_id;
 }
@@ -2211,21 +2216,27 @@ gst_camerasrc_set_caps(GstCamBaseSrc *src, GstPad *pad, GstCaps *caps)
   Gstcamerasrc *camerasrc = GST_CAMERASRC (src);
   gboolean ready_config = TRUE;
   int stream_id = gst_camerasrc_get_stream_id_by_pad(camerasrc, pad);
-  if (stream_id < 0)
+  gchar *padname = gst_pad_get_name(pad);
+  if (stream_id < 0) {
+    g_free (padname);
     return FALSE;
+  }
 
   GST_INFO("CameraId=%d, StreamId=%d name of pad=%s Thread Id=%ld.",
-    camerasrc->device_id, stream_id, gst_pad_get_name(pad), gettid());
+    camerasrc->device_id, stream_id, padname, gettid());
 
   if (get_camera_info(camerasrc->device_id, camerasrc->streams[stream_id].cam_info) < 0) {
     GST_ERROR("failed to get device name when setting device-name.");
     camera_hal_deinit();
+    g_free (padname);
     return FALSE;
   }
 
   /* Get caps info from structure and match from HAL */
-  if (!gst_camerasrc_get_caps_info (camerasrc, caps, stream_id, &camerasrc->stream_list))
+  if (!gst_camerasrc_get_caps_info (camerasrc, caps, stream_id, &camerasrc->stream_list)) {
+    g_free (padname);
     return FALSE;
+  }
 
   /* Set memory type of stream */
   gst_camerasrc_set_memtype(camerasrc, stream_id);
@@ -2234,7 +2245,8 @@ gst_camerasrc_set_caps(GstCamBaseSrc *src, GstPad *pad, GstCaps *caps)
   camerasrc->streams[stream_id].pool = gst_camerasrc_buffer_pool_new(camerasrc, caps, stream_id);
   if (!camerasrc->streams[stream_id].pool) {
     GST_ERROR("CameraId=%d, StreamId=%d create %s buffer pool failed.",
-      camerasrc->device_id, stream_id, gst_pad_get_name(pad));
+      camerasrc->device_id, stream_id, padname);
+    g_free (padname);
     return FALSE;
   }
 
@@ -2255,6 +2267,7 @@ gst_camerasrc_set_caps(GstCamBaseSrc *src, GstPad *pad, GstCaps *caps)
       if (!CameraSrcUtils::check_format_by_name(camerasrc->input_fmt)) {
         GST_ERROR("failed to find match in supported format list.");
         GST_CAMSRC_UNLOCK(camerasrc);
+        g_free (padname);
         return FALSE;
       }
       camerasrc->input_config.format =
@@ -2266,6 +2279,7 @@ gst_camerasrc_set_caps(GstCamBaseSrc *src, GstPad *pad, GstCaps *caps)
         GST_ERROR("CameraId=%d, streamId=%d unsupported input width %d.",
           camerasrc->device_id, stream_id, camerasrc->input_config.width);
         GST_CAMSRC_UNLOCK(camerasrc);
+        g_free (padname);
         return FALSE;
     }
 
@@ -2274,6 +2288,7 @@ gst_camerasrc_set_caps(GstCamBaseSrc *src, GstPad *pad, GstCaps *caps)
         GST_ERROR("CameraId=%d, streamId=%d unsupported input height %d.",
             camerasrc->device_id, stream_id, camerasrc->input_config.height);
         GST_CAMSRC_UNLOCK(camerasrc);
+        g_free (padname);
         return FALSE;
     }
 
@@ -2296,6 +2311,7 @@ gst_camerasrc_set_caps(GstCamBaseSrc *src, GstPad *pad, GstCaps *caps)
         camerasrc->device_id, stream_id, camerasrc->streams[stream_id].fmt_name,
         camerasrc->s[stream_id].width, camerasrc->s[stream_id].height);
       GST_CAMSRC_UNLOCK(camerasrc);
+      g_free (padname);
       return FALSE;
     }
     GST_INFO("CameraId=%d, StreamId=%d config stream done.", camerasrc->device_id, stream_id);
@@ -2308,6 +2324,8 @@ gst_camerasrc_set_caps(GstCamBaseSrc *src, GstPad *pad, GstCaps *caps)
     }
   }
   GST_CAMSRC_UNLOCK(camerasrc);
+
+  g_free (padname);
 
   return TRUE;
 }
