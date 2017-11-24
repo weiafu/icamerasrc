@@ -750,7 +750,7 @@ gst_camerasrc_buffer_pool_acquire_buffer (GstBufferPool * bpool, GstBuffer ** bu
   camerasrc->streams[stream_id].time_end = meta->buffer->timestamp;
 
   if (camerasrc->print_field)
-    g_print("buffer field: %d    Camera Id: %d    buffer sequence: %d\n",
+    g_print("buffer field: %d    Camera Id: %d    buffer sequence: %ld\n",
       meta->buffer->s.field, camerasrc->device_id, meta->buffer->sequence);
 
   PRINT_FIELD(meta->buffer->s.field, buffer_field);

@@ -2305,7 +2305,8 @@ gst_camerasrc_set_caps(GstCamBaseSrc *src, GstPad *pad, GstCaps *caps)
     camerasrc->stream_start_count= camerasrc->number_of_activepads;
     camerasrc->stream_list.num_streams = camerasrc->number_of_activepads;
     camerasrc->stream_list.streams = camerasrc->s;
-    int ret = camera_device_config_streams(camerasrc->device_id, &camerasrc->stream_list, &camerasrc->input_config);
+    int ret = camera_device_config_sensor_input(camerasrc->device_id, &camerasrc->input_config);
+    ret |= camera_device_config_streams(camerasrc->device_id, &camerasrc->stream_list);
     if(ret < 0) {
       GST_ERROR("CameraId=%d, StreamId=%d failed to config stream for format %s %dx%d.",
         camerasrc->device_id, stream_id, camerasrc->streams[stream_id].fmt_name,
