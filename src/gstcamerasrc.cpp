@@ -242,9 +242,9 @@ static gboolean gst_camerasrc_set_antibanding_mode (GstCamerasrc3A *cam3a,
 static gboolean gst_camerasrc_set_color_range_mode (GstCamerasrc3A *cam3a,
     camera_yuv_color_range_mode_t colorRangeMode);
 static gboolean gst_camerasrc_set_exposure_time_range(GstCamerasrc3A *cam3a,
-    camera_ae_exposure_time_range_t exposureTimeRange);
+    camera_range_t exposureTimeRange);
 static gboolean gst_camerasrc_set_sensitivity_gain_range (GstCamerasrc3A *cam3a,
-    camera_sensitivity_gain_range_t sensitivityGainRange);
+    camera_range_t sensitivityGainRange);
 
 static gboolean gst_camerasrc_set_isp_control (GstCamerasrcIsp *camIsp, unsigned int tag, void *data);
 static gboolean gst_camerasrc_get_isp_control (GstCamerasrcIsp *camIsp, unsigned int tag, void *data);
@@ -1416,8 +1416,8 @@ gst_camerasrc_check_exposuretime_range(Gstcamerasrc *src, GEnumValue *values, in
   if (cam_info.capability->getSupportedAeExposureTimeRange(etRanges) == 0) {
     for (auto & item : etRanges) {
       if (src->man_ctl.scene_mode == values[item.scene_mode].value &&
-            (exp < item.exposure_time_min || exp > item.exposure_time_max)) {
-        exp = (exp < item.exposure_time_min) ? item.exposure_time_min : item.exposure_time_max;
+            (exp < item.et_range.min || exp > item.et_range.max)) {
+        exp = (exp < item.et_range.min) ? item.et_range.min : item.et_range.max;
         g_print("Set exposure time to extreme value: %d\n", exp);
         return;
       }
@@ -1437,8 +1437,8 @@ gst_camerasrc_check_aegain_range(Gstcamerasrc *src, GEnumValue *values, float &g
   if (cam_info.capability->getSupportedAeGainRange(gainRange) == 0) {
     for (auto & item : gainRange) {
       if (src->man_ctl.scene_mode == values[item.scene_mode].value &&
-            (gain < item.gain_min || gain > item.gain_max)) {
-        gain = (gain < item.gain_min) ? item.gain_min : item.gain_max;
+            (gain < item.gain_range.min || gain > item.gain_range.max)) {
+        gain = (gain < item.gain_range.min) ? item.gain_range.min : item.gain_range.max;
         g_print("Set gain to extreme value: %f\n", gain);
         return;
       }
@@ -1570,8 +1570,8 @@ gst_camerasrc_set_property (GObject * object, guint prop_id,
   camera_window_list_t region;
   camera_color_transform_t transform;
   camera_range_t cct_range;
-  camera_ae_exposure_time_range_t exposure_time_range;
-  camera_sensitivity_gain_range_t gain_range;
+  camera_range_t exposure_time_range;
+  camera_range_t gain_range;
   camera_coordinate_t white_point;
   unsigned int custom_aic_param_len = 0;
 
@@ -1788,8 +1788,8 @@ gst_camerasrc_set_property (GObject * object, guint prop_id,
       g_free(src->man_ctl.exp_time_range);
       src->man_ctl.exp_time_range = g_strdup(g_value_get_string(value));
       ret = gst_camerasrc_parse_range(src->man_ctl.exp_time_range,
-              exposure_time_range.exposure_time_min,
-              exposure_time_range.exposure_time_max);
+              exposure_time_range.min,
+              exposure_time_range.max);
       if (ret == 0)
         src->param->setExposureTimeRange(exposure_time_range);
       break;
@@ -3046,7 +3046,7 @@ gst_camerasrc_get_awb_cct_range (GstCamerasrc3A *cam3a,
   Gstcamerasrc *camerasrc = GST_CAMERASRC(cam3a);
   camerasrc->param->getAwbCctRange(cct);
   camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
-  g_message("Interface Called: @%s, get cct range, min=%d, max=%d.", __func__,
+  g_message("Interface Called: @%s, get cct range, min=%f, max=%f.", __func__,
       cct.min, cct.max);
 
   return cct;
@@ -3064,7 +3064,7 @@ gst_camerasrc_set_awb_cct_range (GstCamerasrc3A *cam3a,
   Gstcamerasrc *camerasrc = GST_CAMERASRC(cam3a);
   camerasrc->param->setAwbCctRange(cct);
   camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
-  g_message("Interface Called: @%s, set cct range, min=%d, max=%d.", __func__,
+  g_message("Interface Called: @%s, set cct range, min=%f, max=%f.", __func__,
       cct.min, cct.max);
 
   return TRUE;
@@ -3239,13 +3239,13 @@ static gboolean gst_camerasrc_set_color_range_mode (GstCamerasrc3A *cam3a,
 * return TRUE if set successfully, otherwise FASLE is returned
 */
 static gboolean gst_camerasrc_set_exposure_time_range(GstCamerasrc3A *cam3a,
-    camera_ae_exposure_time_range_t exposureTimeRange)
+    camera_range_t exposureTimeRange)
 {
   Gstcamerasrc *camerasrc = GST_CAMERASRC(cam3a);
   camerasrc->param->setExposureTimeRange(exposureTimeRange);
   camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
-  g_message("Interface Called: @%s, set exposure time range, min=%d max=%d.", __func__,
-      exposureTimeRange.exposure_time_min, exposureTimeRange.exposure_time_max);
+  g_message("Interface Called: @%s, set exposure time range, min=%f max=%f.", __func__,
+      exposureTimeRange.min, exposureTimeRange.max);
 
   return TRUE;
 }
@@ -3256,7 +3256,7 @@ static gboolean gst_camerasrc_set_exposure_time_range(GstCamerasrc3A *cam3a,
 * return TRUE if set successfully, otherwise FALSE is returned
 */
 static gboolean gst_camerasrc_set_sensitivity_gain_range (GstCamerasrc3A *cam3a,
-    camera_sensitivity_gain_range_t sensitivityGainRange)
+    camera_range_t sensitivityGainRange)
 {
   Gstcamerasrc *camerasrc = GST_CAMERASRC(cam3a);
   camerasrc->param->setSensitivityGainRange(sensitivityGainRange);

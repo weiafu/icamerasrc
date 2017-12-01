@@ -1341,7 +1341,7 @@ gst_cam_base_src_default_alloc (GstCamBaseSrc * src, GstPad *pad,
 
   if (pool) {
     ret = gst_buffer_pool_acquire_buffer (pool, buffer, NULL);
-  } else if ((gint64)size != -1) {
+  } else if ((gint64)size > 0) {
     *buffer = gst_buffer_new_allocate (allocator, size, &params);
     if (G_UNLIKELY (*buffer == NULL))
       goto alloc_failed;
@@ -1350,7 +1350,7 @@ gst_cam_base_src_default_alloc (GstCamBaseSrc * src, GstPad *pad,
   } else {
     GST_WARNING_OBJECT (src, "Not trying to alloc %u bytes. Blocksize not set?",
         size);
-    goto alloc_failed;
+    ret = GST_FLOW_ERROR;
   }
   return ret;
 
@@ -2050,8 +2050,8 @@ gst_cam_base_src_do_sync (GstCamBaseSrc * basesrc, GstBuffer * buffer)
   GstCamBaseSrcClass *bclass;
   GstClockTime base_time;
   GstClock *clock;
-  GstClockTime now = GST_CLOCK_TIME_NONE, pts, dts, timestamp;
-  gboolean do_timestamp, first, pseudo_live, is_live;
+  GstClockTime now = GST_CLOCK_TIME_NONE, pts, dts;
+  gboolean do_timestamp, first, is_live;
 
   bclass = GST_CAM_BASE_SRC_GET_CLASS (basesrc);
 
@@ -2063,44 +2063,15 @@ gst_cam_base_src_do_sync (GstCamBaseSrc * basesrc, GstBuffer * buffer)
   dts = GST_BUFFER_DTS (buffer);
   pts = GST_BUFFER_PTS (buffer);
 
-  if (GST_CLOCK_TIME_IS_VALID (dts))
-    timestamp = dts;
-  else
-    timestamp = pts;
-
   /* grab the lock to prepare for clocking and calculate the startup
    * latency. */
   GST_OBJECT_LOCK (basesrc);
 
   is_live = basesrc->is_live;
-  /* if we are asked to sync against the clock we are a pseudo live element */
-  pseudo_live = ((gint64)start != -1 && is_live);
   /* check for the first buffer */
   first = ((gint64)basesrc->priv->latency == -1);
 
-  if ((gint64)timestamp != -1 && pseudo_live) {
-    GstClockTime latency;
-
-    /* we have a timestamp and a sync time, latency is the diff */
-    if (timestamp <= start)
-      latency = start - timestamp;
-    else
-      latency = 0;
-
-    if (first) {
-      GST_DEBUG_OBJECT (basesrc, "src pad: pseudo_live with latency %" GST_TIME_FORMAT,
-          GST_TIME_ARGS (latency));
-      /* first time we calculate latency, just configure */
-      basesrc->priv->latency = latency;
-    } else {
-      if (basesrc->priv->latency != latency) {
-        /* we have a new latency, FIXME post latency message */
-        basesrc->priv->latency = latency;
-        GST_DEBUG_OBJECT (basesrc, "src pad: latency changed to %" GST_TIME_FORMAT,
-            GST_TIME_ARGS (latency));
-      }
-    }
-  } else if (first) {
+  if (first) {
     GST_DEBUG_OBJECT (basesrc, "src pad: no latency needed, live %d, sync %d",
         is_live, (gint64)start != -1);
     basesrc->priv->latency = 0;
@@ -2129,18 +2100,8 @@ gst_cam_base_src_do_sync (GstCamBaseSrc * basesrc, GstBuffer * buffer)
         ", running_time %" GST_TIME_FORMAT, GST_TIME_ARGS (pts),
         GST_TIME_ARGS (dts), GST_TIME_ARGS (running_time));
 
-    if (pseudo_live && (gint64)timestamp != -1) {
-      /* live source and we need to sync, add startup latency to all timestamps
-       * to get the real running_time. Live sources should always timestamp
-       * according to the current running time. */
-      basesrc->priv->ts_offset = GST_CLOCK_DIFF (timestamp, running_time);
-
-      GST_LOG_OBJECT (basesrc, "src pad: live with sync, ts_offset %" GST_TIME_FORMAT,
-          GST_TIME_ARGS (basesrc->priv->ts_offset));
-    } else {
-      basesrc->priv->ts_offset = 0;
-      GST_LOG_OBJECT (basesrc, "src pad: no timestamp offset needed");
-    }
+    basesrc->priv->ts_offset = 0;
+    GST_LOG_OBJECT (basesrc, "src pad: no timestamp offset needed");
 
     if (!GST_CLOCK_TIME_IS_VALID (dts)) {
       if (do_timestamp) {
@@ -2224,12 +2185,11 @@ no_sync:
 static GstClockReturn
 gst_cam_base_src_do_video_sync(GstCamBaseSrc * basesrc, GstBuffer * buffer)
 {
-  GstClockReturn result;
   GstClockTime start, end;
   GstClockTime base_time;
   GstClock *clock;
-  GstClockTime now = GST_CLOCK_TIME_NONE, pts, dts, timestamp;
-  gboolean do_timestamp, first, pseudo_live, is_live;
+  GstClockTime now = GST_CLOCK_TIME_NONE, pts, dts;
+  gboolean do_timestamp, first, is_live;
 
   start = end = -1;
 
@@ -2237,44 +2197,15 @@ gst_cam_base_src_do_video_sync(GstCamBaseSrc * basesrc, GstBuffer * buffer)
   dts = GST_BUFFER_DTS (buffer);
   pts = GST_BUFFER_PTS (buffer);
 
-  if (GST_CLOCK_TIME_IS_VALID (dts))
-    timestamp = dts;
-  else
-    timestamp = pts;
-
   /* grab the lock to prepare for clocking and calculate the startup
    * latency. */
   GST_OBJECT_LOCK (basesrc);
 
   is_live = basesrc->is_live;
-  /* if we are asked to sync against the clock we are a pseudo live element */
-  pseudo_live = ((gint64)start != -1 && is_live);
   /* check for the first buffer */
   first = ((gint64)basesrc->priv->vid_latency == -1);
 
-  if ((gint64)timestamp != -1 && pseudo_live) {
-    GstClockTime latency;
-
-    /* we have a timestamp and a sync time, latency is the diff */
-    if (timestamp <= start)
-      latency = start - timestamp;
-    else
-      latency = 0;
-
-    if (first) {
-      GST_DEBUG_OBJECT (basesrc, "video pad: pseudo_live with latency %" GST_TIME_FORMAT,
-        GST_TIME_ARGS (latency));
-      /* first time we calculate latency, just configure */
-      basesrc->priv->vid_latency = latency;
-    } else {
-      if (basesrc->priv->vid_latency != latency) {
-      /* we have a new latency, FIXME post latency message */
-      basesrc->priv->vid_latency = latency;
-      GST_DEBUG_OBJECT (basesrc, "video pad: latency changed to %" GST_TIME_FORMAT,
-        GST_TIME_ARGS (latency));
-      }
-    }
-  } else if (first) {
+  if (first) {
     GST_DEBUG_OBJECT (basesrc, "video pad: no latency needed, live %d, sync %d",
       is_live, (gint64)start != -1);
     basesrc->priv->vid_latency = 0;
@@ -2303,14 +2234,8 @@ gst_cam_base_src_do_video_sync(GstCamBaseSrc * basesrc, GstBuffer * buffer)
              ", running_time %" GST_TIME_FORMAT, GST_TIME_ARGS (pts),
              GST_TIME_ARGS (dts), GST_TIME_ARGS (running_time));
 
-    if (pseudo_live && (gint64)timestamp != -1) {
-      basesrc->priv->vid_ts_offset = GST_CLOCK_DIFF (timestamp, running_time);
-      GST_LOG_OBJECT (basesrc, "video pad: live with sync, ts_offset %" GST_TIME_FORMAT,
-        GST_TIME_ARGS (basesrc->priv->vid_ts_offset));
-    } else {
-      basesrc->priv->vid_ts_offset = 0;
-      GST_LOG_OBJECT (basesrc, "video pad: no timestamp offset needed");
-    }
+    basesrc->priv->vid_ts_offset = 0;
+    GST_LOG_OBJECT (basesrc, "video pad: no timestamp offset needed");
 
     if (!GST_CLOCK_TIME_IS_VALID (dts)) {
       if (do_timestamp) {
@@ -2349,27 +2274,7 @@ gst_cam_base_src_do_video_sync(GstCamBaseSrc * basesrc, GstBuffer * buffer)
   if (!GST_CLOCK_TIME_IS_VALID (start))
     goto no_sync;
 
-  if (is_live) {
-    /* for pseudo live sources, add our ts_offset to the timestamp */
-    if (GST_CLOCK_TIME_IS_VALID (pts))
-      GST_BUFFER_PTS (buffer) += basesrc->priv->vid_ts_offset;
-    if (GST_CLOCK_TIME_IS_VALID (dts))
-      GST_BUFFER_DTS (buffer) += basesrc->priv->vid_ts_offset;
-    start += basesrc->priv->vid_ts_offset;
-  }
-
-  GST_LOG_OBJECT (basesrc,
-           "video pad: waiting for clock, base time %" GST_TIME_FORMAT
-           ", stream_start %" GST_TIME_FORMAT,
-           GST_TIME_ARGS (base_time), GST_TIME_ARGS (start));
-
-  result = gst_cam_base_src_wait (basesrc, clock, start + base_time);
-
-  gst_object_unref (clock);
-
-  GST_LOG_OBJECT (basesrc, "video pad: clock entry done: %d", result);
-
-  return result;
+  return GST_CLOCK_OK;
 
   /* special cases */
   no_clock:
@@ -2532,10 +2437,6 @@ again:
    * possible that we have a valid buffer from create that we need to
    * discard when the create function returned _OK. */
   if (G_UNLIKELY (g_atomic_int_get (&src->priv->has_pending_eos))) {
-    if (ret == GST_FLOW_OK) {
-      if (*buf == NULL)
-        gst_buffer_unref (res_buf);
-    }
     src->priv->forced_eos = TRUE;
     goto eos;
   }
@@ -2589,12 +2490,6 @@ again:
       GST_DEBUG_OBJECT (src, "buffer ok");
       break;
     case GST_CLOCK_UNSCHEDULED:
-      /* this case is triggered when we were waiting for the clock and
-       * it got unlocked because we did a state change. In any case, get rid of
-       * the buffer. */
-      if (*buf == NULL)
-        gst_buffer_unref (res_buf);
-
       if (!src->live_running) {
         /* We return FLUSHING when we are not running to stop the dataflow also
          * get rid of the produced buffer. */
@@ -2614,8 +2509,6 @@ again:
       GST_ELEMENT_ERROR (src, CORE, CLOCK,
           ("Internal clock error."),
           ("clock returned unexpected return value %d", status));
-      if (*buf == NULL)
-        gst_buffer_unref (res_buf);
       ret = GST_FLOW_ERROR;
       break;
   }
@@ -2647,8 +2540,6 @@ map_failed:
         ("%s pad: failed to map buffer.", padname),
         ("failed to map result buffer in WRITE mode"));
     g_free (padname);
-    if (*buf == NULL)
-      gst_buffer_unref (res_buf);
     return GST_FLOW_ERROR;
   }
 not_started:
@@ -2680,8 +2571,6 @@ flushing:
   {
     GST_DEBUG_OBJECT (src, "%s pad: we are flushing", padname);
     g_free (padname);
-    if (*buf == NULL)
-      gst_buffer_unref (res_buf);
     return GST_FLOW_FLUSHING;
   }
 eos:
@@ -2699,12 +2588,10 @@ gst_cam_base_src_video_get_range (GstCamBaseSrc * src, GstPad *pad, guint64 offs
   GstFlowReturn ret;
   GstCamBaseSrcClass *bclass;
   GstBuffer *res_buf, *in_buf;
-  GstClockReturn status;
   gchar *padname = gst_pad_get_name(pad);
 
   bclass = GST_CAM_BASE_SRC_GET_CLASS(src);
 
-again:
   if (G_UNLIKELY (!GST_CAM_BASE_SRC_IS_STARTED (src)
           && !GST_CAM_BASE_SRC_IS_STARTING (src)))
     goto not_started;
@@ -2737,9 +2624,7 @@ again:
     GST_BUFFER_DTS (res_buf) = 0;
   }
 
-  status = gst_cam_base_src_do_video_sync(src, res_buf);
-  if (status != GST_CLOCK_OK)
-    goto again;
+  gst_cam_base_src_do_video_sync(src, res_buf);
 
   if (G_UNLIKELY (src->priv->flushing))
     goto flushing;
@@ -2773,8 +2658,6 @@ flushing:
   {
     GST_DEBUG_OBJECT (src, "%s pad: we are flushing", padname);
     g_free (padname);
-    if (*buf == NULL)
-      gst_buffer_unref (res_buf);
     return GST_FLOW_FLUSHING;
   }
 eos:

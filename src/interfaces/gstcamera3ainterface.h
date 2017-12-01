@@ -356,14 +356,14 @@ struct _GstCamerasrc3AInterface {
   * param[in]        exposureTimeRange        the exposure time range to be set
   * return 0 if set successfully, otherwise non-0 value is returned
   */
-  gboolean      (*set_exposure_time_range)      (GstCamerasrc3A *cam3a, camera_ae_exposure_time_range_t exposureTimeRange);
+  gboolean      (*set_exposure_time_range)      (GstCamerasrc3A *cam3a, camera_range_t exposureTimeRange);
 
   /* set sensitivity gain range
   * param[in]        cam3a        Camera Source handle
   * param[in]        sensitivityGainRange        the sensitivity gain range to be set
   * return 0 if set successfully, otherwise non-0 value is returned
   */
-  gboolean      (*set_sensitivity_gain_range)      (GstCamerasrc3A *cam3a, camera_sensitivity_gain_range_t sensitivityGainRange);
+  gboolean      (*set_sensitivity_gain_range)      (GstCamerasrc3A *cam3a, camera_range_t sensitivityGainRange);
 };
 
 GType gst_camerasrc_3a_interface_get_type(void);
