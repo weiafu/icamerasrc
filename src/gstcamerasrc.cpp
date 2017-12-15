@@ -505,18 +505,12 @@ gst_camerasrc_scene_mode_get_type(void)
           "HLC", "hlc"},
     {GST_CAMERASRC_SCENE_MODE_NORMAL,
           "NORMAL", "normal"},
-    {GST_CAMERASRC_SCENE_MODE_INDOOR,
-          "Indoor", "indoor"},
-    {GST_CAMERASRC_SCENE_MODE_OUTOOR,
-          "Outdoor", "outdoor"},
     {GST_CAMERASRC_SCENE_MODE_CUSTOM_AIC,
           "CUSTOM_AIC", "custom_aic"},
     {GST_CAMERASRC_SCENE_MODE_VIDEO_LL,
           "VIDEO_LL", "video-ll"},
     {GST_CAMERASRC_SCENE_MODE_STILL_CAPTURE,
           "STILL_CAPTURE", "still_capture"},
-    {GST_CAMERASRC_SCENE_MODE_DISABLED,
-          "Disabled", "disabled"},
     {0, NULL, NULL},
    };
 
@@ -2854,12 +2848,9 @@ gst_camerasrc_set_awb_gain (GstCamerasrc3A *cam3a,
 *                                   SCENE_MODE_ULL,
 *                                   SCENE_MODE_HLC,
 *                                   SCENE_MODE_NORMAL,
-*                                   SCENE_MODE_INDOOR,
-*                                   SCENE_MODE_OUTDOOR,
 *                                   SCENE_MODE_CUSTOM_AIC,
 *                                   SCENE_MODE_VIDEO_LL,
 *                                   SCENE_MODE_STILL_CAPTURE,
-*                                   SCENE_MODE_DISABLED,
 *                                   SCENE_MODE_MAX
 * return 0 if set successfully, otherwise non-0 value is returned
 */

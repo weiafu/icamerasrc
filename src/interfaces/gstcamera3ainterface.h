@@ -177,11 +177,8 @@ struct _GstCamerasrc3AInterface {
   *                                   SCENE_MODE_ULL,
   *                                   SCENE_MODE_HLC,
   *                                   SCENE_MODE_NORMAL,
-  *                                   SCENE_MODE_INDOOR,
-  *                                   SCENE_MODE_OUTDOOR,
   *                                   SCENE_MODE_CUSTOM_AIC,
   *                                   SCENE_MODE_VIDEO_LL,
-  *                                   SCENE_MODE_DISABLED,
   *                                   SCENE_MODE_MAX
   * return 0 if set successfully, otherwise non-0 value is returned
   */

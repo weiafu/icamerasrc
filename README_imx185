@@ -151,11 +151,9 @@ scene-mode             Enum               N/A            0:auto               0:
                                                          2:ull
                                                          3:hlc
                                                          4:normal
-                                                         5:indoor
-                                                         6:outdoor
-                                                         7:custom_aic
-                                                         8:video-ll
-                                                         9:disabled
+                                                         5:custom_aic
+                                                         6:video-ll
+                                                         7:still-capture
 
 sensor-resolution      Enum               N/A            0:1080p              0:1080p
                                                          1:720p
