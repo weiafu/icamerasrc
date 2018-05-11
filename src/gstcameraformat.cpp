@@ -1,6 +1,6 @@
 /*
  * GStreamer
- * Copyright (C) 2015-2017 Intel Corporation
+ * Copyright (C) 2015-2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -85,7 +85,7 @@ typedef struct
   cameraSrc_Res_Range range;
 } cameraSrc_Main_Res_Range;
 
-static int register_format_and_resolution(const stream_array_t configs,
+static int register_format_and_resolution(const supported_stream_config_array_t configs,
                vector <camera_resolution_t> fmt_res,
                vector <cameraSrc_Main_Res_Range> &main_res_range);
 static void get_max_and_min_resolution(vector <camera_resolution_t> r, cameraSrc_Res_Range *res_range);
@@ -252,7 +252,7 @@ update_main_resolution(int format,
   * Register the union set of resolution of each format into cameraSrc_Main_Res_Range
   */
 static int
-register_format_and_resolution(const stream_array_t configs,
+register_format_and_resolution(const supported_stream_config_array_t configs,
     vector <camera_resolution_t> fmt_res,
     vector <cameraSrc_Main_Res_Range> &main_res_range)
 {
@@ -296,7 +296,7 @@ GstCaps *gst_camerasrc_get_all_caps (GstcamerasrcClass *camerasrc_class)
   int count = get_number_of_cameras();
 
   for(int i = 0; i < count; i++) {
-    stream_array_t configs;
+    supported_stream_config_array_t configs;
     camera_info_t info;
 
     //get configuration of camera

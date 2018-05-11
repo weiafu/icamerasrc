@@ -1,6 +1,6 @@
 /*
  * GStreamer
- * Copyright (C) 2015-2017 Intel Corporation
+ * Copyright (C) 2015-2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -372,11 +372,6 @@ gst_cam_base_src_finalize (GObject * object)
 
   event_p = &basesrc->pending_seek;
   gst_event_replace (event_p, NULL);
-
-  if (basesrc->segment.format)
-    gst_segment_free(&basesrc->segment);
-  if (basesrc->vid_segment.format)
-    gst_segment_free(&basesrc->vid_segment);
 
   if (basesrc->priv->pending_events) {
     g_list_foreach (basesrc->priv->pending_events, (GFunc) gst_event_unref,
@@ -2955,7 +2950,8 @@ flushing:
   }
 pause:
   {
-    const gchar *reason = gst_flow_get_name (ret); GstEvent *event;
+    const gchar *reason = gst_flow_get_name (ret);
+    GstEvent *event;
 
     GST_DEBUG_OBJECT (src, "%s pad: pausing task, reason %s", padname, reason);
     src->running = FALSE;

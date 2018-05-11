@@ -2,7 +2,7 @@
  * GStreamer
  * Copyright (C) 2005 Thomas Vander Stichele <thomas@apestaart.org>
  * Copyright (C) 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
- * Copyright (C) 2015-2017 Intel Corporation
+ * Copyright (C) 2015-2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -67,6 +67,7 @@
 #include "gstcamera3ainterface.h"
 #include "gstcameraispinterface.h"
 #include "gstcameradewarpinginterface.h"
+#include "gstcamerawfovinterface.h"
 #include "utils.h"
 
 using namespace icamera;
@@ -151,12 +152,14 @@ enum
 static void gst_camerasrc_3a_interface_init (GstCamerasrc3AInterface *iface);
 static void gst_camerasrc_isp_interface_init (GstCamerasrcIspInterface *ispIface);
 static void gst_camerasrc_dewarping_interface_init (GstCamerasrcDewarpingInterface *dewarpingIface);
+static void gst_camerasrc_wfov_interface_init (GstCamerasrcWFOVInterface *wfovIface);
 
 
 G_DEFINE_TYPE_WITH_CODE (Gstcamerasrc, gst_camerasrc, GST_TYPE_CAM_PUSH_SRC,
         G_IMPLEMENT_INTERFACE(GST_TYPE_CAMERASRC_3A_IF, gst_camerasrc_3a_interface_init);
         G_IMPLEMENT_INTERFACE(GST_TYPE_CAMERASRC_ISP_IF, gst_camerasrc_isp_interface_init);
-        G_IMPLEMENT_INTERFACE(GST_TYPE_CAMERASRC_DEWARPING_IF, gst_camerasrc_dewarping_interface_init));
+        G_IMPLEMENT_INTERFACE(GST_TYPE_CAMERASRC_DEWARPING_IF, gst_camerasrc_dewarping_interface_init);
+        G_IMPLEMENT_INTERFACE(GST_TYPE_CAMERASRC_WFOV_IF, gst_camerasrc_wfov_interface_init));
 
 static void gst_camerasrc_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
@@ -254,6 +257,17 @@ static gboolean gst_camerasrc_get_ltm_tuning_data (GstCamerasrcIsp *camIsp, void
 
 static gboolean gst_camerasrc_set_dewarping_mode (GstCamerasrcDewarping *camDewarping, camera_fisheye_dewarping_mode_t mode);
 static gboolean gst_camerasrc_get_dewarping_mode (GstCamerasrcDewarping *camDewarping, camera_fisheye_dewarping_mode_t &mode);
+
+static gboolean gst_camerasrc_get_wfov_mode (GstCamerasrcWFOV *camWFOV, uint8_t &mode);
+static gboolean gst_camerasrc_get_sensor_mount_type (GstCamerasrcWFOV *camWFOV, camera_mount_type_t &mount_type);
+static gboolean gst_camerasrc_set_view_projection (GstCamerasrcWFOV *camWFOV, camera_view_projection_t projection);
+static gboolean gst_camerasrc_get_view_projection (GstCamerasrcWFOV *camWFOV, camera_view_projection_t &projection);
+static gboolean gst_camerasrc_set_view_rotation (GstCamerasrcWFOV *camWFOV, camera_view_rotation_t rotation);
+static gboolean gst_camerasrc_get_view_rotation (GstCamerasrcWFOV *camWFOV, camera_view_rotation_t &rotation);
+static gboolean gst_camerasrc_set_view_fine_adjustments (GstCamerasrcWFOV *camWFOV, camera_view_fine_adjustments_t fine_adjustments);
+static gboolean gst_camerasrc_get_view_fine_adjustments (GstCamerasrcWFOV *camWFOV, camera_view_fine_adjustments_t &fine_adjustments);
+static gboolean gst_camerasrc_set_camera_rotation (GstCamerasrcWFOV *camWFOV, camera_view_rotation_t camRotation);
+static gboolean gst_camerasrc_get_camera_rotation (GstCamerasrcWFOV *camWFOV, camera_view_rotation_t &camRotation);
 
 #if 0
 static gboolean gst_camerasrc_sink_event(GstPad * pad, GstObject * parent, GstEvent * event);
@@ -855,11 +869,11 @@ gst_camerasrc_class_init (GstcamerasrcClass * klass)
 
   g_object_class_install_property(gobject_class,PROP_EXPOSURE_TIME,
       g_param_spec_int("exposure-time","Exposure time","Exposure time(only valid in manual AE mode)",
-        90,33333,90,(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        0,1000000,DEFAULT_PROP_EXPOSURE_TIME,(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   g_object_class_install_property(gobject_class,PROP_GAIN,
       g_param_spec_float("gain","Gain","Implement total gain or maximal gain(only valid in manual AE mode).Unit: db",
-        0.0,60.0,0.0,(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        0.0,100.0,DEFAULT_PROP_GAIN,(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   g_object_class_install_property (gobject_class, PROP_BLC_AREA_MODE,
       g_param_spec_enum ("blc-area-mode", "BLC area mode", "BLC area mode",
@@ -867,7 +881,7 @@ gst_camerasrc_class_init (GstcamerasrcClass * klass)
 
   g_object_class_install_property(gobject_class,PROP_WDR_LEVEL,
       g_param_spec_int("wdr-level","WDR level","WDR level",
-        0,200,100,(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        0,200,DEFAULT_PROP_WDR_LEVEL,(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   g_object_class_install_property (gobject_class, PROP_AWB_MODE,
       g_param_spec_enum ("awb-mode", "AWB mode", "White balance mode",
@@ -1163,6 +1177,21 @@ gst_camerasrc_dewarping_interface_init (GstCamerasrcDewarpingInterface *dewarpin
   dewarpingIface->get_dewarping_mode = gst_camerasrc_get_dewarping_mode;
 }
 
+static void
+gst_camerasrc_wfov_interface_init (GstCamerasrcWFOVInterface *wfovIface)
+{
+  wfovIface->get_wfov_mode = gst_camerasrc_get_wfov_mode;
+  wfovIface->get_sensor_mount_type = gst_camerasrc_get_sensor_mount_type;
+  wfovIface->set_view_projection = gst_camerasrc_set_view_projection;
+  wfovIface->get_view_projection = gst_camerasrc_get_view_projection;
+  wfovIface->set_view_rotation = gst_camerasrc_set_view_rotation;
+  wfovIface->get_view_rotation = gst_camerasrc_get_view_rotation;
+  wfovIface->set_view_fine_adjustments = gst_camerasrc_set_view_fine_adjustments;
+  wfovIface->get_view_fine_adjustments = gst_camerasrc_get_view_fine_adjustments;
+  wfovIface->set_camera_rotation = gst_camerasrc_set_camera_rotation;
+  wfovIface->get_camera_rotation = gst_camerasrc_get_camera_rotation;
+}
+
 /**
  * This function is to avtivate a request pad from GstCamBaseSrc
  * through interface method. The requested pad is got according
@@ -1411,12 +1440,13 @@ gst_camerasrc_check_exposuretime_range(Gstcamerasrc *src, GEnumValue *values, in
     for (auto & item : etRanges) {
       if (src->man_ctl.scene_mode == values[item.scene_mode].value &&
             (exp < item.et_range.min || exp > item.et_range.max)) {
+        g_print("Warning: the exposure time: %d is out of range(%0lf~%0lf)\n", exp, item.et_range.min, item.et_range.max);
         exp = (exp < item.et_range.min) ? item.et_range.min : item.et_range.max;
-        g_print("Set exposure time to extreme value: %d\n", exp);
         return;
       }
     }
   }
+  g_print("Set exposure time to extreme value: %d\n", exp);
   return;
 }
 
@@ -1432,12 +1462,13 @@ gst_camerasrc_check_aegain_range(Gstcamerasrc *src, GEnumValue *values, float &g
     for (auto & item : gainRange) {
       if (src->man_ctl.scene_mode == values[item.scene_mode].value &&
             (gain < item.gain_range.min || gain > item.gain_range.max)) {
+        g_print("Warning: the gain value: %f is out of range(%f~%f)\n", gain, item.gain_range.min, item.gain_range.max);
         gain = (gain < item.gain_range.min) ? item.gain_range.min : item.gain_range.max;
-        g_print("Set gain to extreme value: %f\n", gain);
         return;
       }
     }
   }
+  g_print("Set gain to extreme value: %f\n", gain);
   return;
 }
 
@@ -2056,14 +2087,19 @@ static gboolean
 gst_camerasrc_find_match_stream(Gstcamerasrc* camerasrc,
                                 int stream_id, int format, int width, int height, int field)
 {
-    stream_array_t configs;
+    supported_stream_config_array_t configs;
     int ret = FALSE;
     camerasrc->streams[stream_id].cam_info.capability->getSupportedStreamConfig(configs);
 
     for (unsigned int i = 0; i < configs.size(); i++) {
         if (width == configs[i].width && height == configs[i].height &&
             format == configs[i].format && field == configs[i].field) {
-            camerasrc->s[stream_id] = configs[i];
+            camerasrc->s[stream_id].format = configs[i].format;
+            camerasrc->s[stream_id].width = configs[i].width;
+            camerasrc->s[stream_id].height = configs[i].height;
+            camerasrc->s[stream_id].field = configs[i].field;
+            camerasrc->s[stream_id].stride = configs[i].stride;
+            camerasrc->s[stream_id].size = configs[i].size;
             camerasrc->streams[stream_id].bpl = configs[i].stride;
             return TRUE;
         }
@@ -2078,7 +2114,7 @@ gst_camerasrc_get_caps_info (Gstcamerasrc* camerasrc,
 {
   PERF_CAMERA_ATRACE();
   GstVideoInfo info;
-  guint32 fourcc = 0;
+  gint32 fourcc = 0;
   GstStructure *structure = gst_caps_get_structure (caps, 0);
   const gchar *mimetype = gst_structure_get_name (structure);
 
@@ -2093,7 +2129,7 @@ gst_camerasrc_get_caps_info (Gstcamerasrc* camerasrc,
   /* parse format from caps */
   if (g_str_equal (mimetype, "video/x-raw")) {
     fourcc = CameraSrcUtils::gst_fmt_2_fourcc(gst_fmt);
-    if (fourcc < 0)
+    if (fourcc == -1)
       return FALSE;
   } else if (g_str_equal (mimetype, "video/x-bayer"))
     fourcc = V4L2_PIX_FMT_SGRBG8;
@@ -2296,6 +2332,10 @@ gst_camerasrc_set_caps(GstCamBaseSrc *src, GstPad *pad, GstCaps *caps)
 
     gst_camerasrc_get_configuration_mode(camerasrc, &camerasrc->stream_list);
 
+    for (int i = 0; i < camerasrc->number_of_activepads; i++) {
+        // Set usage to CAMERA_STREAM_VIDEO_CAPTURE for video user cases
+        camerasrc->s[i].usage = CAMERA_STREAM_VIDEO_CAPTURE;
+    }
     camerasrc->stream_start_count= camerasrc->number_of_activepads;
     camerasrc->stream_list.num_streams = camerasrc->number_of_activepads;
     camerasrc->stream_list.streams = camerasrc->s;
@@ -3391,6 +3431,207 @@ static gboolean gst_camerasrc_get_dewarping_mode (GstCamerasrcDewarping *camDewa
   camerasrc->param->getFisheyeDewarpingMode(mode);
   camera_get_parameters(camerasrc->device_id, param);
   ret = param.getFisheyeDewarpingMode(mode);
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Get the WFOV mode if enabled or not, view set operations are only available when WFOV mode is enabled
+ *
+* param[in]        camWFOV       Camera Source handle
+* param[out]       data          wfov mode to get
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_get_wfov_mode(GstCamerasrcWFOV *camWFOV, uint8_t &data)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.getWFOV(data);
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Get the sensor mount type
+ *
+* param[in]        camWFOV        Camera Source handle
+* param[out]       mount_type     The sensor mount type to get
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_get_sensor_mount_type(GstCamerasrcWFOV *camWFOV, camera_mount_type_t &mount_type)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.getSensorMountType(mount_type);
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Set the view projection setting
+ *
+* param[in]        camWFOV        Camera Source handle
+* param[out]       projection     The projection to set
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_set_view_projection(GstCamerasrcWFOV *camWFOV, camera_view_projection_t projection)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.setViewProjection(projection);
+  if (ret != 0)
+      return FALSE;
+
+  ret = camera_set_parameters(camerasrc->device_id, param);
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Get the view projection setting
+ *
+* param[in]        camWFOV        Camera Source handle
+* param[out]       projection     The projection to get
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_get_view_projection(GstCamerasrcWFOV *camWFOV, camera_view_projection_t &projection)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.getViewProjection(projection);
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Set the view rotation setting
+ *
+* param[in]        camWFOV        Camera Source handle
+* param[out]       rotation       The rotation to set
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_set_view_rotation(GstCamerasrcWFOV *camWFOV, camera_view_rotation_t rotation)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.setViewRotation(rotation);
+  if (ret != 0)
+      return FALSE;
+
+  ret = camera_set_parameters(camerasrc->device_id, param);
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+
+/* Get the view rotation setting
+ *
+* param[in]        camWFOV        Camera Source handle
+* param[out]       rotation       The rotation to get
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_get_view_rotation(GstCamerasrcWFOV *camWFOV, camera_view_rotation_t &rotation)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.getViewRotation(rotation);
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Set the view fine adjustment settings
+ *
+* param[in]        camWFOV             Camera Source handle
+* param[out]       fine_adjustments    The view fine adjustments to set
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_set_view_fine_adjustments(GstCamerasrcWFOV *camWFOV, camera_view_fine_adjustments_t fine_adjustments)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.setViewFineAdjustments(fine_adjustments);
+  if (ret != 0)
+      return FALSE;
+
+  ret = camera_set_parameters(camerasrc->device_id, param);
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Get the view fine adjustment settings
+ *
+* param[in]        camWFOV             Camera Source handle
+* param[out]       fine_adjustments    The view fine adjustments to get
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_get_view_fine_adjustments(GstCamerasrcWFOV *camWFOV, camera_view_fine_adjustments_t &fine_adjustments)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.getViewFineAdjustments(fine_adjustments);
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+/* Set the camera device rotation setting
+ *
+* param[in]        camWFOV        Camera Source handle
+* param[in]        camRotation    The camera device rotation to set
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_set_camera_rotation(GstCamerasrcWFOV *camWFOV, camera_view_rotation_t camRotation)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.setCameraRotation(camRotation);
+
+  return (ret == 0 ? TRUE : FALSE);
+}
+
+
+/* Get the camera device rotation setting
+ *
+* param[in]        camWFOV        Camera Source handle
+* param[out]       camRotation    The camera device rotation to get
+* return TRUE if set successfully, otherwise FALSE is returned
+*/
+static gboolean gst_camerasrc_get_camera_rotation(GstCamerasrcWFOV *camWFOV, camera_view_rotation_t &camRotation)
+{
+  int ret = 0;
+  Parameters param;
+  Gstcamerasrc *camerasrc = GST_CAMERASRC(camWFOV);
+  g_message("Enter %s", __func__);
+
+  camera_get_parameters(camerasrc->device_id, param);
+  ret = param.getCameraRotation(camRotation);
 
   return (ret == 0 ? TRUE : FALSE);
 }

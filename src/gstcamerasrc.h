@@ -2,7 +2,7 @@
  * GStreamer
  * Copyright (C) 2005 Thomas Vander Stichele <thomas@apestaart.org>
  * Copyright (C) 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
- * Copyright (C) 2015-2017 Intel Corporation
+ * Copyright (C) 2015-2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -72,8 +72,8 @@ using std::set;
 #define MAX_PROP_BUFFERCOUNT 10
 #define MIN_PROP_BUFFERCOUNT 2
 #define DEFAULT_PROP_WDR_LEVEL 100
-#define DEFAULT_PROP_EXPOSURE_TIME 90
-#define DEFAULT_PROP_GAIN 0
+#define DEFAULT_PROP_EXPOSURE_TIME 0
+#define DEFAULT_PROP_GAIN 0.0
 #define DEFAULT_PROP_PRINT_FPS false
 #define DEFAULT_PROP_PRINT_FIELD false
 #define DEFAULT_PROP_INPUT_WIDTH 0

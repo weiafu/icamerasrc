@@ -1,6 +1,6 @@
 #
 #  GStreamer
-#  Copyright (C) 2016-2017 Intel Corporation
+#  Copyright (C) 2016-2018 Intel Corporation
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a
 #  copy of this software and associated documentation files (the "Software"),
@@ -45,7 +45,8 @@ lib_LTLIBRARIES = libgsticamerainterface.la
 
 libgsticamerainterface_la_SOURCES = gstcamera3ainterface.cpp \
                                     gstcameraispinterface.cpp \
-                                    gstcameradewarpinginterface.cpp
+                                    gstcameradewarpinginterface.cpp \
+                                    gstcamerawfovinterface.cpp
 
 libgsticamerainterface_la_CPPFLAGS = -std=c++11 \
     -Wall -Werror \
@@ -68,4 +69,5 @@ libgsticamerainterfaceincludedir = $(inludedir)
 
 libgsticamerainterfaceinclude_HEADERS = gstcamera3ainterface.h \
                                         gstcameraispinterface.h \
-                                        gstcameradewarpinginterface.h
+                                        gstcameradewarpinginterface.h \
+                                        gstcamerawfovinterface.h
