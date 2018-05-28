@@ -107,6 +107,8 @@ using std::set;
 /* Default value of enum type property 'ae-converge-speed':normal */
 #define DEFAULT_PROP_CONVERGE_SPEED GST_CAMERASRC_CONVERGE_SPEED_NORMAL
 #define DEFAULT_PROP_CONVERGE_SPEED_MODE GST_CAMERASRC_CONVERGE_SPEED_MODE_AIQ
+/* Default value of enum type property 'flip-mode':none */
+#define DEFAULT_PROP_FLIP_MODE GST_CAMERASRC_FLIP_MODE_NONE
 /* Default value of enum type property 'antibanding':auto */
 #define DEFAULT_PROP_ANTIBANDING_MODE GST_CAMERASRC_ANTIBANDING_MODE_AUTO
 /* Default value of enum type property 'exp-priority':auto */
@@ -250,6 +252,14 @@ typedef enum
   GST_CAMERASRC_CONVERGE_SPEED_MODE_AIQ = 0,
   GST_CAMERASRC_CONVERGE_SPEED_MODE_HAL = 1,
 } GstCamerasrcConvergeSpeedMode;
+
+typedef enum
+{
+  GST_CAMERASRC_FLIP_MODE_NONE = 0,
+  GST_CAMERASRC_FLIP_MODE_VFLIP = 1,
+  GST_CAMERASRC_FLIP_MODE_HFLIP = 2,
+  GST_CAMERASRC_FLIP_MODE_VHFLIP = 3,
+} GstCamerasrcFlipMode;
 
 typedef enum
 {
@@ -486,6 +496,7 @@ struct _Gstcamerasrc
   int interlace_field;
   int deinterlace_method;
   int io_mode;
+  int flip_mode;
   int video_stabilization_mode;
   int fisheye_dewarping_mode;
   int buffer_usage;

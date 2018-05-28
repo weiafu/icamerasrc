@@ -135,6 +135,7 @@ enum
   /* Custom Aic Parameter*/
   PROP_CUSTOM_AIC_PARAMETER,
 
+  PROP_FLIP_MODE,
   PROP_ANTIBANDING_MODE,
   PROP_COLOR_RANGE_MODE,
   PROP_VIDEO_STABILIZATION_MODE,
@@ -438,6 +439,30 @@ gst_camerasrc_video_stabilization_mode_get_type(void)
     video_stabilization_mode_type = g_enum_register_static ("GstCamerasrcVideoStabilizationMode", modes);
   }
   return video_stabilization_mode_type;
+}
+
+static GType
+gst_camerasrc_flip_mode_get_type(void)
+{
+  PERF_CAMERA_ATRACE();
+  static GType flip_mode_type = 0;
+
+  static const GEnumValue modes[] = {
+    {GST_CAMERASRC_FLIP_MODE_NONE,
+          "None", "none"},
+    {GST_CAMERASRC_FLIP_MODE_VFLIP,
+          "Vertical flip", "vflip"},
+    {GST_CAMERASRC_FLIP_MODE_HFLIP,
+          "Horizontal flip", "hflip"},
+    {GST_CAMERASRC_FLIP_MODE_VHFLIP,
+          "Vertical and horizontal flip", "vhflip"},
+    {0, NULL, NULL},
+   };
+
+  if (!flip_mode_type) {
+    flip_mode_type = g_enum_register_static ("GstCamerasrcFlipMode", modes);
+  }
+  return flip_mode_type;
 }
 
 static GType
@@ -970,6 +995,10 @@ gst_camerasrc_class_init (GstcamerasrcClass * klass)
   g_object_class_install_property (gobject_class, PROP_CUSTOM_AIC_PARAMETER,
       g_param_spec_string("custom-aic-param","Custom Aic Parameter","Custom Aic Parameter",
         DEFAULT_PROP_CUSTOM_AIC_PARAMETER, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+  g_object_class_install_property (gobject_class, PROP_FLIP_MODE,
+      g_param_spec_enum ("flip-mode", "Flip Mode", "Flip Mode",
+          gst_camerasrc_flip_mode_get_type(), DEFAULT_PROP_FLIP_MODE, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   g_object_class_install_property (gobject_class, PROP_ANTIBANDING_MODE,
       g_param_spec_enum ("antibanding-mode", "Antibanding Mode", "Antibanding Mode",
@@ -1842,6 +1871,10 @@ gst_camerasrc_set_property (GObject * object, guint prop_id,
       custom_aic_param_len = strlen(src->man_ctl.custom_aic_param) + 1;
       src->param->setCustomAicParam(src->man_ctl.custom_aic_param, custom_aic_param_len);
       break;
+    case PROP_FLIP_MODE:
+      src->param->setFlipMode((camera_flip_mode_t)g_value_get_enum(value));
+      src->flip_mode = g_value_get_enum (value);
+      break;
     case PROP_ANTIBANDING_MODE:
       src->param->setAntiBandingMode((camera_antibanding_mode_t)g_value_get_enum(value));
       src->man_ctl.antibanding_mode = g_value_get_enum (value);
@@ -2037,6 +2070,9 @@ gst_camerasrc_get_property (GObject * object, guint prop_id,
       break;
     case PROP_FISHEYE_DEWARPING_MODE:
       g_value_set_enum (value, src->fisheye_dewarping_mode);
+      break;
+    case PROP_FLIP_MODE:
+      g_value_set_enum (value, src->flip_mode);
       break;
     case PROP_INPUT_FORMAT:
       g_value_set_string (value, src->input_fmt);
