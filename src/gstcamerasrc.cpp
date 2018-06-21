@@ -2200,7 +2200,7 @@ gst_camerasrc_get_caps_info (Gstcamerasrc* camerasrc,
   /* if 'framerate' label is configured in Capsfilter, call HAL interface, otherwise is 0 */
   int fps_numerator = GST_VIDEO_INFO_FPS_N(&info);
   int fps_denominator = GST_VIDEO_INFO_FPS_D(&info);
-  camerasrc->param->setFrameRate(fps_numerator/fps_denominator);
+  camerasrc->param->setFrameRate(static_cast<float>(fps_numerator) / fps_denominator);
 
   camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
 
