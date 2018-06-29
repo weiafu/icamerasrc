@@ -875,11 +875,14 @@ gst_camerasrc_buffer_pool_release_buffer (GstBufferPool * bpool, GstBuffer * buf
 
   /* in PLAYING->PAUSED and PAUSED->NULL state,
   * no need to check if queue has available buffer,
-  * unlock qbuf_mutex immediately and quit function so pipeline can cease normally */
-  if (camerasrc->running != GST_CAMERASRC_STATUS_RUNNING) {
-    GST_INFO("CameraId=%d, StreamId=%d is exiting.", camerasrc->device_id, pool->stream_id);
-    g_mutex_unlock(&camerasrc->qbuf_mutex);
-    return;
+  * unlock qbuf_mutex immediately and quit function so pipeline can cease normally
+  * this check is not needed before preallocate is done */
+  if (camerasrc->start_streams) {
+    if (camerasrc->running != GST_CAMERASRC_STATUS_RUNNING) {
+      GST_INFO("CameraId=%d, StreamId=%d is exiting.", camerasrc->device_id, pool->stream_id);
+      g_mutex_unlock(&camerasrc->qbuf_mutex);
+      return;
+    }
   }
 
   /* check if there's available buffer in queue */
