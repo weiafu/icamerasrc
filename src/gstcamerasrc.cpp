@@ -1100,6 +1100,7 @@ gst_camerasrc_init (Gstcamerasrc * camerasrc)
   camerasrc->deinterlace_method = DEFAULT_DEINTERLACE_METHOD;
   camerasrc->device_id = DEFAULT_PROP_DEVICE_ID;
   camerasrc->camera_open = FALSE;
+  camerasrc->camera_init = FALSE;
   camerasrc->first_frame = TRUE;
   camerasrc->running = GST_CAMERASRC_STATUS_DEFAULT;
   camerasrc->num_vc = 0;
@@ -1575,7 +1576,6 @@ gst_camerasrc_analyze_isp_control(Gstcamerasrc *src, const char *bin_name)
   }
 
   src->param->setEnabledIspControls(*(src->isp_control_tags));
-  camera_set_parameters(src->device_id, *(src->param));
   delete[] buffer;
 
   return 0;
@@ -1930,7 +1930,7 @@ gst_camerasrc_set_property (GObject * object, guint prop_id,
       break;
   }
 
-  if (manual_setting && src->camera_open) {
+  if (manual_setting && src->camera_open && src->camera_init) {
       camera_set_parameters(src->device_id, *(src->param));
   }
 
@@ -2434,8 +2434,10 @@ gst_camerasrc_start(GstCamBaseSrc *basesrc)
   int ret = camera_hal_init();
   if (ret < 0) {
     GST_ERROR("CameraId=%d failed to init HAL.", camerasrc->device_id);
+    camerasrc->camera_init = false;
     return FALSE;
   }
+  camerasrc->camera_init = true;
 
   ret = camera_device_open(camerasrc->device_id, camerasrc->num_vc);
   if (ret < 0) {
@@ -2443,9 +2445,8 @@ gst_camerasrc_start(GstCamBaseSrc *basesrc)
      camerasrc->camera_open = false;
      camera_hal_deinit();
      return FALSE;
-  } else {
-     camerasrc->camera_open = true;
   }
+  camerasrc->camera_open = true;
 
   //set all the params first time.
   camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
@@ -2740,7 +2741,7 @@ gst_camerasrc_get_image_enhancement (GstCamerasrc3A *cam3a,
   g_message("Interface Called: @%s, sharpness=%d, brightness=%d, contrast=%d, hue=%d, saturation=%d.",
                                __func__, img_enhancement.sharpness, img_enhancement.brightness,
                                img_enhancement.contrast, img_enhancement.hue, img_enhancement.saturation);
-  camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
+  camera_get_parameters(camerasrc->device_id, *(camerasrc->param));
 
   return img_enhancement;
 }
@@ -2905,7 +2906,7 @@ gst_camerasrc_get_awb_gain (GstCamerasrc3A *cam3a,
 {
   Gstcamerasrc *camerasrc = GST_CAMERASRC(cam3a);
   camerasrc->param->getAwbGains(awbGains);
-  camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
+  camera_get_parameters(camerasrc->device_id, *(camerasrc->param));
   g_message("Interface Called: @%s, r_gain=%d, g_gain=%d, b_gain=%d.", __func__,
       awbGains.r_gain, awbGains.g_gain, awbGains.b_gain);
 
@@ -3125,7 +3126,7 @@ gst_camerasrc_get_awb_cct_range (GstCamerasrc3A *cam3a,
 {
   Gstcamerasrc *camerasrc = GST_CAMERASRC(cam3a);
   camerasrc->param->getAwbCctRange(cct);
-  camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
+  camera_get_parameters(camerasrc->device_id, *(camerasrc->param));
   g_message("Interface Called: @%s, get cct range, min=%f, max=%f.", __func__,
       cct.min, cct.max);
 
@@ -3161,7 +3162,7 @@ gst_camerasrc_get_white_point (GstCamerasrc3A *cam3a,
 {
   Gstcamerasrc *camerasrc = GST_CAMERASRC(cam3a);
   camerasrc->param->getAwbWhitePoint(whitePoint);
-  camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
+  camera_get_parameters(camerasrc->device_id, *(camerasrc->param));
   g_message("Interface Called: @%s, get white point, x=%d, y=%d.", __func__,
       whitePoint.x, whitePoint.y);
 
@@ -3199,7 +3200,7 @@ gst_camerasrc_get_awb_gain_shift (GstCamerasrc3A *cam3a,
 {
   Gstcamerasrc *camerasrc = GST_CAMERASRC(cam3a);
   camerasrc->param->getAwbGainShift(awbGainShift);
-  camera_set_parameters(camerasrc->device_id, *(camerasrc->param));
+  camera_get_parameters(camerasrc->device_id, *(camerasrc->param));
   g_message("Interface Called: @%s, r_gain=%d, g_gain=%d, b_gain=%d.", __func__,
       awbGainShift.r_gain, awbGainShift.g_gain, awbGainShift.b_gain);
 

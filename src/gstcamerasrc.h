@@ -476,6 +476,7 @@ struct _Gstcamerasrc
   int number_of_activepads;
   gboolean first_frame;
   gboolean camera_open;
+  gboolean camera_init;
   Parameters *param;
   set <unsigned int> *isp_control_tags;
   GstCamerasrcRunningStat running;
