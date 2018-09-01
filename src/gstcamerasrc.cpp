@@ -551,6 +551,8 @@ gst_camerasrc_scene_mode_get_type(void)
           "VIDEO_LL", "video-ll"},
     {GST_CAMERASRC_SCENE_MODE_STILL_CAPTURE,
           "STILL_CAPTURE", "still_capture"},
+    {GST_CAMERASRC_SCENE_MODE_HDR2,
+          "HDR2", "hdr2"},
     {0, NULL, NULL},
    };
 
@@ -2278,6 +2280,9 @@ gst_camerasrc_get_configuration_mode(Gstcamerasrc* camerasrc, stream_config_t *s
       case GST_CAMERASRC_SCENE_MODE_STILL_CAPTURE:
         stream_list->operation_mode = 0x8007;
         break;
+      case GST_CAMERASRC_SCENE_MODE_HDR2:
+        stream_list->operation_mode = 0x8008;
+        break;
       case GST_CAMERASRC_SCENE_MODE_NORMAL:
         stream_list->operation_mode = 0;
         break;
@@ -2425,10 +2430,39 @@ gst_camerasrc_get_caps(GstCamBaseSrc *src,GstCaps *filter)
 }
 
 static gboolean
+gst_camerasrc_check_deinterlace_params(Gstcamerasrc *camerasrc)
+{
+  int method = camerasrc->deinterlace_method;
+  int io_mode = camerasrc->io_mode;
+  int field = camerasrc->interlace_field;
+  if (method == GST_CAMERASRC_DEINTERLACE_METHOD_NONE)
+    return TRUE;
+  else if (method == GST_CAMERASRC_DEINTERLACE_METHOD_SOFTWARE_BOB)
+    return (io_mode == GST_CAMERASRC_IO_MODE_USERPTR)
+        && ((field == GST_CAMERASRC_INTERLACE_FIELD_ANY) || (field == GST_CAMERASRC_INTERLACE_FIELD_ALTERNATE));
+  else if (method == GST_CAMERASRC_DEINTERLACE_METHOD_SOFTWARE_WEAVE)
+    return (io_mode == GST_CAMERASRC_IO_MODE_USERPTR) && (field == GST_CAMERASRC_INTERLACE_FIELD_ALTERNATE);
+  else if (method == GST_CAMERASRC_DEINTERLACE_METHOD_HARDWARE_WEAVE)
+    return ((io_mode == GST_CAMERASRC_IO_MODE_USERPTR) || (io_mode == GST_CAMERASRC_IO_MODE_DMA_IMPORT))
+        && (field == GST_CAMERASRC_INTERLACE_FIELD_ALTERNATE);
+  else
+    return FALSE;
+}
+
+static gboolean
 gst_camerasrc_start(GstCamBaseSrc *basesrc)
 {
   Gstcamerasrc *camerasrc = GST_CAMERASRC (basesrc);
   GST_INFO("CameraId=%d.", camerasrc->device_id);
+
+  /* check params */
+  if (!gst_camerasrc_check_deinterlace_params(camerasrc)) {
+    GST_ERROR("Deinterlace params error, deinterlace_method=%d, io_mode=%d interlace_field=%d",
+    camerasrc->deinterlace_method, camerasrc->io_mode, camerasrc->interlace_field);
+    return FALSE;
+  }
+  GST_INFO("Deinterlace_method=%d, io_mode=%d interlace_field=%d",
+  camerasrc->deinterlace_method, camerasrc->io_mode, camerasrc->interlace_field);
 
   /* Init HAL */
   int ret = camera_hal_init();

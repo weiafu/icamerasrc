@@ -77,46 +77,11 @@ void gst_camerasrc_copy_field(Gstcamerasrc *camerasrc,
   if (camerasrc->deinterlace_method != GST_CAMERASRC_DEINTERLACE_METHOD_SOFTWARE_WEAVE)
     return;
 
-  char *addr = (char *)src->addr;
   const int bytes_of_line = camerasrc->streams[stream_id].bpl;
   const int height = CameraSrcUtils::get_number_of_valid_lines(camerasrc->s[stream_id].format,
                          camerasrc->s[stream_id].height);
-  int odd_even = 0;
-
-  if (dst == camerasrc->streams[stream_id].top)
-    odd_even = 1;
-  else if (dst == camerasrc->streams[stream_id].bottom)
-    odd_even = 2;
-
-  for (int m = height/2; m>0; m--) {
-      MEMCPY_S((char *)dst->addr + (m*2-odd_even)*bytes_of_line, bytes_of_line,
-               addr + (m-1)*bytes_of_line, bytes_of_line);
-  }
-}
-
-void gst_camerasrc_update_previous_buffer(Gstcamerasrc *camerasrc,
-       camera_buffer_t *currentBuffer, int &seq_diff)
-{
-  GstCamerasrcBufferPool *pool = GST_CAMERASRC_BUFFER_POOL_CAST(camerasrc);
-  int stream_id = pool->stream_id;
-
-  /* currently we only update previous buffer when do sw_weaving*/
-  if (camerasrc->deinterlace_method != GST_CAMERASRC_DEINTERLACE_METHOD_SOFTWARE_WEAVE)
-    return;
-
-  /* copy buffer data to previous_buffer for storage */
-  char *addr = (char *)currentBuffer->addr;
-  const int bytes_of_line = camerasrc->streams[stream_id].bpl;
-  const int height = CameraSrcUtils::get_number_of_valid_lines(camerasrc->s[stream_id].format,
-                         camerasrc->s[stream_id].height);
-
-  for (int m = height/2; m>0; m--) {
-    MEMCPY_S((char *)camerasrc->streams[stream_id].previous_buffer->addr + m*bytes_of_line,
-               bytes_of_line, addr + m*bytes_of_line, bytes_of_line);
-  }
-
-  seq_diff = currentBuffer->sequence - camerasrc->streams[stream_id].previous_buffer->sequence;
-  camerasrc->streams[stream_id].previous_buffer->sequence = currentBuffer->sequence;
+  int total_len = bytes_of_line * height / 2;
+  MEMCPY_S((char *)dst->addr, total_len, (char *)src->addr, total_len);
 }
 
 static int
@@ -159,9 +124,9 @@ gst_camerasrc_deinterlace_sw_weave(Gstcamerasrc *camerasrc,
   /* Weave topfield buffer and bottomfield buffer into output buffer */
   for (int i = height/2; i > 0; i--) {
     MEMCPY_S(addr + (i*2-1)*bytes_of_line, bytes_of_line,
-              (char *)top->addr + (i*2 - 1)*bytes_of_line, bytes_of_line);
+              (char *)bottom->addr + (i-1)*bytes_of_line, bytes_of_line);
     MEMCPY_S(addr + (i*2-2)*bytes_of_line, bytes_of_line,
-              (char *)bottom->addr + (i*2 - 2)*bytes_of_line, bytes_of_line);
+              (char *)top->addr + (i-1)*bytes_of_line, bytes_of_line);
   }
   /* Update buffer flag because it's progressive frame*/
   dest->s.field = V4L2_FIELD_NONE;

@@ -211,6 +211,7 @@ typedef enum
   GST_CAMERASRC_SCENE_MODE_CUSTOM_AIC = 5,
   GST_CAMERASRC_SCENE_MODE_VIDEO_LL = 6,
   GST_CAMERASRC_SCENE_MODE_STILL_CAPTURE = 7,
+  GST_CAMERASRC_SCENE_MODE_HDR2 = 8,
 } GstCamerasrcSceneMode;
 
 typedef enum
@@ -433,11 +434,11 @@ struct _GstStreamInfo
   GstBufferPool *downstream_pool;
 
   /* Weave buffers are used only when deinterlace_method='sw_weave'
-    * top stores odd lines, bottom stores even lines, previous_buffer
-    * stores data from previous buffer */
+    * top stores odd lines, bottom stores even lines*/
   camera_buffer_t *top;
   camera_buffer_t *bottom;
-  camera_buffer_t *previous_buffer;
+  /* previous sequence*/
+  int previous_sequence;
 
   /* Buffer config */
   guint bpl;

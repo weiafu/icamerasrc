@@ -52,8 +52,6 @@ bool gst_camerasrc_isPlanarFormat(int format);
 void gst_camerasrc_copy_field(Gstcamerasrc *camerasrc,
         camera_buffer_t *src,
         camera_buffer_t *dst);
-void gst_camerasrc_update_previous_buffer(Gstcamerasrc *camerasrc,
-        camera_buffer_t *currentBuffer, int &seq_diff);
 int gst_camerasrc_deinterlace_frame(Gstcamerasrc *camerasrc, camera_buffer_t *buffer);
 
 #endif /* __GST_CAMERASRC_DEINTERLACE_H__ */

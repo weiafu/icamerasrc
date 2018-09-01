@@ -336,25 +336,7 @@ gst_camerasrc_alloc_weave_buffer(Gstcamerasrc *camerasrc, gint size)
       }
     }
 
-    /* currently previous_buffer is only used to do sw weaving */
-    GST_DEBUG("CameraId=%d, StreamId=%d allocate buffer to store data of previous buffer.",
-      camerasrc->device_id, pool->stream_id);
-    if (camerasrc->streams[stream_id].previous_buffer == NULL) {
-      camerasrc->streams[stream_id].previous_buffer = (camera_buffer_t *)calloc(1, sizeof(camera_buffer_t));
-      if (camerasrc->streams[stream_id].previous_buffer ==NULL) {
-        GST_ERROR("CameraId=%d, StreamId=%d failed to alloc previous buffer.",
-          camerasrc->device_id, pool->stream_id);
-        return GST_FLOW_ERROR;
-      }
-      camerasrc->streams[stream_id].previous_buffer->sequence = 0;
-
-      ret = posix_memalign(&camerasrc->streams[stream_id].previous_buffer->addr, getpagesize(), size);
-      if (ret < 0) {
-        GST_ERROR("CameraId=%d, StreamId=%d previous buffer memalign error.",
-          camerasrc->device_id, pool->stream_id);
-        return GST_FLOW_ERROR;
-      }
-    }
+    camerasrc->streams[stream_id].previous_sequence = 0;
   }
 
   return ret;
@@ -767,7 +749,11 @@ gst_camerasrc_buffer_pool_acquire_buffer (GstBufferPool * bpool, GstBuffer ** bu
 
   /* when sw_weaving is enabled, copy buffer data to both top and bottom
     * if it's the first buffer, or buffer sequence is inconsecutive */
-  gst_camerasrc_update_previous_buffer(camerasrc, meta->buffer, sequence_diff);
+  if (camerasrc->deinterlace_method == GST_CAMERASRC_DEINTERLACE_METHOD_SOFTWARE_WEAVE)
+  {
+    sequence_diff = meta->buffer->sequence - camerasrc->streams[stream_id].previous_sequence;
+    camerasrc->streams[stream_id].previous_sequence = meta->buffer->sequence;
+  }
   if (camerasrc->first_frame || sequence_diff > 1) {
     gst_camerasrc_copy_field (camerasrc,
       meta->buffer,
@@ -789,9 +775,6 @@ gst_camerasrc_buffer_pool_acquire_buffer (GstBufferPool * bpool, GstBuffer ** bu
           gst_camerasrc_copy_field(camerasrc,
             meta->buffer,
             camerasrc->streams[stream_id].top);
-          gst_camerasrc_copy_field(camerasrc,
-            camerasrc->streams[stream_id].previous_buffer,
-            camerasrc->streams[stream_id].bottom);
         }
         break;
     case V4L2_FIELD_BOTTOM:
@@ -799,9 +782,6 @@ gst_camerasrc_buffer_pool_acquire_buffer (GstBufferPool * bpool, GstBuffer ** bu
         GST_BUFFER_FLAG_SET (gbuffer, GST_VIDEO_BUFFER_FLAG_INTERLACED);
 
         if (do_weaving) {
-          gst_camerasrc_copy_field(camerasrc,
-            camerasrc->streams[stream_id].previous_buffer,
-            camerasrc->streams[stream_id].top);
           gst_camerasrc_copy_field(camerasrc,
             meta->buffer,
             camerasrc->streams[stream_id].bottom);
@@ -930,15 +910,10 @@ gst_camerasrc_free_weave_buffer (Gstcamerasrc *src, int stream_id)
   if (src->streams[stream_id].bottom->addr)
     free(src->streams[stream_id].bottom->addr);
 
-  if (src->streams[stream_id].previous_buffer->addr)
-    free(src->streams[stream_id].previous_buffer->addr);
-
   free(src->streams[stream_id].top);
   free(src->streams[stream_id].bottom);
-  free(src->streams[stream_id].previous_buffer);
   src->streams[stream_id].top = NULL;
   src->streams[stream_id].bottom = NULL;
-  src->streams[stream_id].previous_buffer = NULL;
 }
 
 static void
